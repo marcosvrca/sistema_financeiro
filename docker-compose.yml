@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: financeiro-db
+    environment:
+      POSTGRES_USER: financeiro
+      POSTGRES_PASSWORD: financeiro
+      POSTGRES_DB: financeiro
+    ports:
+      - "5433:5432"
+    volumes:
+      - financeiro_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U financeiro -d financeiro"]
+      interval: 3s
+      timeout: 5s
+      retries: 8
+
+  app:
+    build: .
+    container_name: financeiro-app
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://financeiro:financeiro@db:5432/financeiro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  financeiro_pg:

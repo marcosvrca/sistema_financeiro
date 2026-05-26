@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finanças · Painel premium</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-deep: #060910;
+      --bg-main: #0a0f1a;
+      --surface: #111827;
+      --surface-elevated: #1a2332;
+      --border: rgba(255, 255, 255, 0.07);
+      --gold: #d4af37;
+      --gold-glow: rgba(212, 175, 55, 0.35);
+      --emerald: #34d399;
+      --rose: #f87171;
+      --sky: #38bdf8;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --sidebar-w: 260px;
+      --radius: 16px;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 175, 55, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(56, 189, 248, 0.06), transparent),
+        linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-main) 100%);
+    }
+
+    .app-shell { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--border);
+      padding: 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0a0f1a;
+      font-size: 1.25rem;
+      box-shadow: 0 4px 20px var(--gold-glow);
+    }
+
+    .brand h1 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .brand p {
+      margin: 0;
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .nav-premium { flex: 1; }
+    .nav-premium .nav-link {
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 0.65rem 0.85rem;
+      font-weight: 500;
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .nav-premium .nav-link:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .nav-premium .nav-link.active {
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.18) 0%, rgba(212, 175, 55, 0.06) 100%);
+      border-color: rgba(212, 175, 55, 0.25);
+      box-shadow: 0 0 24px rgba(212, 175, 55, 0.08);
+    }
+    .nav-premium .nav-link i { font-size: 1.1rem; opacity: 0.9; }
+
+    .db-status {
+      margin-top: auto;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      background: rgba(52, 211, 153, 0.08);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      font-size: 0.72rem;
+      color: var(--emerald);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .db-status.offline {
+      background: rgba(248, 113, 113, 0.08);
+      border-color: rgba(248, 113, 113, 0.25);
+      color: var(--rose);
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 1.5rem 1.75rem 2.5rem;
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    .page-header {
+      margin-bottom: 1.5rem;
+    }
+    .page-header h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.25rem;
+    }
+    .page-header .lead {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .panel { display: none; animation: fadeIn 0.35s ease; }
+    .panel.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-premium {
+      background: rgba(26, 35, 50, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+      height: 100%;
+    }
+    .card-premium .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-premium .card-title i { color: var(--gold); }
+
+    .form-control, .form-select, textarea.form-control {
+      background: rgba(8, 12, 20, 0.8);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    .form-control:focus, .form-select:focus, textarea.form-control:focus {
+      background: rgba(8, 12, 20, 0.95);
+      border-color: rgba(212, 175, 55, 0.45);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+      color: var(--text);
+    }
+    .form-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #e8c547 0%, #c9a227 50%, #a67c00 100%);
+      border: none;
+      color: #0a0f1a;
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 0.55rem 1.1rem;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-gold:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px var(--gold-glow);
+      color: #0a0f1a;
+    }
+
+    .tipo-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .tipo-btns button {
+      padding: 0.65rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(8, 12, 20, 0.6);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tipo-btns button.sel-entrada {
+      border-color: rgba(52, 211, 153, 0.5);
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--emerald);
+    }
+    .tipo-btns button.sel-saida {
+      border-color: rgba(248, 113, 113, 0.5);
+      background: rgba(248, 113, 113, 0.1);
+      color: var(--rose);
+    }
+
+    .metric-card {
+      background: rgba(26, 35, 50, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+      height: 100%;
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--border);
+    }
+    .metric-card.ok::before { background: linear-gradient(90deg, var(--emerald), transparent); }
+    .metric-card.danger::before { background: linear-gradient(90deg, var(--rose), transparent); }
+    .metric-card.accent::before { background: linear-gradient(90deg, var(--gold), transparent); }
+    .metric-card .metric-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .metric-card strong {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-card .metric-icon {
+      position: absolute;
+      top: 0.85rem;
+      right: 0.85rem;
+      font-size: 1.1rem;
+      opacity: 0.25;
+    }
+
+    .table-premium {
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text);
+      --bs-table-border-color: var(--border);
+      font-size: 0.85rem;
+    }
+    .table-premium thead th {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      font-weight: 600;
+      border-bottom-width: 1px;
+      padding: 0.75rem 0.65rem;
+    }
+    .table-premium tbody td {
+      padding: 0.65rem;
+      vertical-align: middle;
+    }
+    .table-premium tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .recentes { max-height: 220px; overflow-y: auto; margin-top: 1rem; }
+    .recentes ul { list-style: none; margin: 0; padding: 0; }
+    .recentes li {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .ent { color: var(--emerald); font-weight: 600; }
+    .sai { color: var(--rose); font-weight: 600; }
+
+    .msg { font-size: 0.82rem; min-height: 1.2em; margin-top: 0.5rem; }
+    .msg.ok { color: var(--emerald); }
+    .msg.err { color: var(--rose); }
+
+    .pill-manual {
+      font-size: 0.65rem;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--sky);
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    button.link {
+      background: none;
+      border: none;
+      color: var(--rose);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0;
+    }
+    button.link:hover { text-decoration: underline; }
+    button.link-edit { color: var(--sky); margin-right: 0.5rem; }
+    .acoes-cell { white-space: nowrap; }
+
+    .modal-content.modal-premium {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .modal-content.modal-premium .modal-header { border-color: var(--border); }
+    .modal-content.modal-premium .modal-footer { border-color: var(--border); }
+    .modal-content.modal-premium .btn-close { filter: invert(1); }
+
+    .chart-wrap { min-height: 240px; position: relative; }
+    .chart-wrap canvas { max-height: 260px !important; }
+
+    .period-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-bottom: 1.25rem;
+    }
+    .period-bar .period-field { min-width: 140px; flex: 1; max-width: 180px; }
+
+    .planej-bar {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 0.75rem;
+    }
+    .planej-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+    .planej-bar-fill.ok { background: linear-gradient(90deg, var(--emerald), #22c55e); }
+    .planej-bar-fill.warn { background: linear-gradient(90deg, #fbbf24, var(--gold)); }
+    .planej-bar-fill.danger { background: linear-gradient(90deg, var(--rose), #dc2626); }
+    .planej-status {
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .planej-status.ok { color: var(--emerald); }
+    .planej-status.danger { color: var(--rose); }
+
+    .mobile-nav-toggle { display: none; }
+
+    @media (max-width: 991px) {
+      .app-shell { flex-direction: column; }
+      .sidebar {
+        position: fixed;
+        left: -280px;
+        transition: left 0.3s ease;
+        width: 280px;
+        height: 100%;
+      }
+      .sidebar.open { left: 0; }
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 99;
+      }
+      .sidebar-overlay.show { display: block; }
+      .mobile-nav-toggle {
+        display: inline-flex;
+        position: fixed;
+        bottom: 1.25rem;
+        right: 1.25rem;
+        z-index: 101;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #e8c547, #a67c00);
+        border: none;
+        color: #0a0f1a;
+        font-size: 1.35rem;
+        box-shadow: 0 8px 28px var(--gold-glow);
+      }
+      .main-content { padding: 1rem; padding-top: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-icon"><i class="bi bi-wallet2"></i></div>
+        <div>
+          <h1>Finanças Pro</h1>
+          <p>Controle inteligente</p>
+        </div>
+      </div>
+
+      <nav class="nav flex-column nav-premium tabs" id="nav-tabs">
+        <button type="button" class="nav-link active" data-tab="inicio">
+          <i class="bi bi-grid-1x2-fill"></i> Dashboard
+        </button>
+        <button type="button" class="nav-link" data-tab="mov">
+          <i class="bi bi-arrow-left-right"></i> Movimentos
+        </button>
+        <button type="button" class="nav-link" data-tab="import">
+          <i class="bi bi-cloud-upload"></i> Importar extrato
+        </button>
+        <button type="button" class="nav-link" data-tab="extratos">
+          <i class="bi bi-journal-text"></i> Extratos
+        </button>
+        <button type="button" class="nav-link" data-tab="fixas">
+          <i class="bi bi-calendar-check"></i> Contas fixas
+        </button>
+      </nav>
+
+      <div class="db-status" id="db-badge-wrap">
+        <i class="bi bi-database-check"></i>
+        <span id="db-badge">conectando…</span>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- DASHBOARD -->
+      <section id="panel-inicio" class="panel active">
+        <div class="page-header">
+          <h2>Dashboard</h2>
+          <p class="lead">Visão consolidada — salário, contas fixas, movimentos e categorias.</p>
+        </div>
+
+        <div class="card-premium mb-4" id="dash-planejamento">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+            <div class="card-title mb-0"><i class="bi bi-pie-chart-fill"></i> Salário x contas fixas (mensal)</div>
+            <button type="button" class="btn btn-outline-light btn-sm" id="btn-ir-fixas">
+              <i class="bi bi-gear me-1"></i> Configurar
+            </button>
+          </div>
+          <div id="dash-plan-empty" class="text-secondary small">
+            Cadastre seu salário e as contas fixas para ver quanto sobra ou falta no mês.
+          </div>
+          <div id="dash-plan-content" style="display:none">
+            <div class="row g-3 mb-3">
+              <div class="col-6 col-md-3">
+                <div class="metric-card accent">
+                  <div class="metric-label">Salário fixo</div>
+                  <strong id="dash-pl-salario">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card danger">
+                  <div class="metric-label">Contas fixas</div>
+                  <strong id="dash-pl-fixas">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card ok" id="dash-pl-card-resultado">
+                  <div class="metric-label" id="dash-pl-lbl-resultado">Sobra estimada</div>
+                  <strong id="dash-pl-resultado">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <div class="metric-label">% do salário</div>
+                  <strong id="dash-pl-pct">—</strong>
+                </div>
+              </div>
+            </div>
+            <div class="planej-bar mb-2"><div class="planej-bar-fill ok" id="dash-pl-bar" style="width:0%"></div></div>
+            <p class="planej-status ok mb-3" id="dash-pl-status"></p>
+            <div class="row g-3">
+              <div class="col-lg-5">
+                <div class="chart-wrap" style="min-height:200px">
+                  <canvas id="ch-planej"></canvas>
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="table-responsive">
+                  <table class="table table-premium table-sm mb-0" id="tbl-dash-fixas">
+                    <thead>
+                      <tr>
+                        <th>Conta fixa</th>
+                        <th class="num">Valor/mês</th>
+                        <th class="num">% salário</th>
+                        <th>Dia</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                      <tr class="fw-semibold">
+                        <td>Total previsto</td>
+                        <td class="num" id="dash-fixas-total">—</td>
+                        <td class="num" id="dash-fixas-pct-total">—</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-premium period-bar mb-4">
+          <div class="period-field">
+            <label class="form-label" for="f-de">Período — de</label>
+            <input type="date" class="form-control" id="f-de" />
+          </div>
+          <div class="period-field">
+            <label class="form-label" for="f-ate">Até</label>
+            <input type="date" class="form-control" id="f-ate" />
+          </div>
+          <div>
+            <button type="button" class="btn btn-gold" id="btn-atualizar">
+              <i class="bi bi-arrow-repeat me-1"></i> Atualizar
+            </button>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-lg-4 col-xl-3">
+            <div class="card-premium" id="lanc-card">
+              <div class="card-title"><i class="bi bi-plus-circle"></i> Novo lançamento</div>
+              <p class="text-secondary small mb-3">Registre entrada ou saída — salvo no banco na hora.</p>
+              <div class="tipo-btns mb-3">
+                <button type="button" id="btn-entrada" class="sel-entrada"><i class="bi bi-arrow-down-circle me-1"></i> Entrada</button>
+                <button type="button" id="btn-saida">Saída <i class="bi bi-arrow-up-circle ms-1"></i></button>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="l-data">Data</label>
+                <input type="date" class="form-control" id="l-data" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="l-desc">Descrição</label>
+                <input type="text" class="form-control" id="l-desc" placeholder="Ex.: Mercado, Salário" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="l-valor">Valor (R$)</label>
+                <input type="text" class="form-control" id="l-valor" placeholder="150,00" inputmode="decimal" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="l-cat">Categoria</label>
+                <select class="form-select" id="l-cat"></select>
+              </div>
+              <button type="button" class="btn btn-gold w-100" id="btn-salvar-lanc">
+                <i class="bi bi-check2-circle me-1"></i> Salvar lançamento
+              </button>
+              <p class="msg" id="lanc-msg"></p>
+              <div class="recentes">
+                <div class="form-label mb-2">Últimos lançamentos</div>
+                <ul id="lista-recentes"></ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-8 col-xl-9">
+            <div class="row g-3 mb-4" id="metrics">
+              <div class="col-6 col-md-3">
+                <div class="metric-card ok">
+                  <i class="bi bi-graph-up-arrow metric-icon"></i>
+                  <div class="metric-label">Entradas</div>
+                  <strong id="k-ent">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card danger">
+                  <i class="bi bi-graph-down-arrow metric-icon"></i>
+                  <div class="metric-label">Saídas</div>
+                  <strong id="k-sai">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card accent">
+                  <i class="bi bi-piggy-bank metric-icon"></i>
+                  <div class="metric-label">Resultado líquido</div>
+                  <strong id="k-liq">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card accent">
+                  <i class="bi bi-bank metric-icon"></i>
+                  <div class="metric-label">Saldo extrato</div>
+                  <strong id="k-saldo">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card danger">
+                  <i class="bi bi-pin-angle metric-icon"></i>
+                  <div class="metric-label">Gastos fixos</div>
+                  <strong id="k-fix">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <i class="bi bi-shuffle metric-icon"></i>
+                  <div class="metric-label">Gastos variáveis</div>
+                  <strong id="k-var">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <i class="bi bi-percent metric-icon"></i>
+                  <div class="metric-label">% fixas</div>
+                  <strong id="k-pctf">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <i class="bi bi-receipt metric-icon"></i>
+                  <div class="metric-label">Ticket médio</div>
+                  <strong id="k-ticket">—</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <div class="card-premium chart-wrap">
+                  <div class="card-title"><i class="bi bi-bar-chart-line"></i> Entradas x saídas / mês</div>
+                  <canvas id="ch-mensal"></canvas>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card-premium chart-wrap">
+                  <div class="card-title"><i class="bi bi-pie-chart"></i> Saídas por categoria</div>
+                  <canvas id="ch-cat"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-premium">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div class="card-title mb-0"><i class="bi bi-tags"></i> Resumo por categoria</div>
+                <button type="button" class="btn btn-outline-light btn-sm" id="btn-recat">
+                  <i class="bi bi-arrow-clockwise me-1"></i> Atualizar categorias
+                </button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-premium table-hover mb-0" id="tbl-cat">
+                  <thead><tr><th>Categoria</th><th class="num">Entrada</th><th class="num">Saída</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MOVIMENTOS -->
+      <section id="panel-mov" class="panel">
+        <div class="page-header">
+          <h2>Movimentos</h2>
+          <p class="lead">Extrato e lançamentos manuais no período selecionado.</p>
+        </div>
+        <div class="card-premium">
+          <div class="table-responsive">
+            <table class="table table-premium table-hover mb-0" id="tbl-mov">
+              <thead>
+                <tr>
+                  <th>Data</th><th>Descrição</th>
+                  <th class="num">Entrada</th><th class="num">Saída</th>
+                  <th>Categoria</th><th>Origem</th><th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- IMPORTAR -->
+      <section id="panel-import" class="panel">
+        <div class="page-header">
+          <h2>Importar extrato</h2>
+          <p class="lead">Envie o arquivo do banco ou cole o texto — campos separados por <code>;</code>.</p>
+        </div>
+        <div class="card-premium col-lg-10">
+          <div class="mb-3">
+            <label class="form-label" for="arq-extrato">Arquivo (.txt ou .csv)</label>
+            <input type="file" class="form-control" id="arq-extrato" accept=".txt,.csv" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="txt-extrato">Conteúdo do extrato</label>
+            <textarea class="form-control" id="txt-extrato" rows="12" placeholder="Cole o extrato aqui…"></textarea>
+          </div>
+          <button type="button" class="btn btn-gold" id="btn-importar">
+            <i class="bi bi-database-add me-1"></i> Importar para o banco
+          </button>
+          <p class="msg" id="import-msg"></p>
+        </div>
+      </section>
+
+      <!-- EXTRATOS IMPORTADOS -->
+      <section id="panel-extratos" class="panel">
+        <div class="page-header">
+          <h2>Extratos importados</h2>
+          <p class="lead">Histórico de importações — excluir um extrato remove todos os movimentos daquele lote.</p>
+        </div>
+        <div class="card-premium">
+          <div class="table-responsive">
+            <table class="table table-premium table-hover mb-0" id="tbl-extratos">
+              <thead>
+                <tr>
+                  <th>Importação</th>
+                  <th>Período</th>
+                  <th class="num">Lidas</th>
+                  <th class="num">Gravadas</th>
+                  <th class="num">Duplicadas</th>
+                  <th class="num">No banco</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="msg" id="extratos-msg"></p>
+        </div>
+      </section>
+
+      <!-- CONTAS FIXAS -->
+      <section id="panel-fixas" class="panel">
+        <div class="page-header">
+          <h2>Contas fixas</h2>
+          <p class="lead">Salário mensal, despesas recorrentes e controle do que sobra ou falta no mês.</p>
+        </div>
+
+        <div class="card-premium mb-4" id="card-planejamento">
+          <div class="card-title"><i class="bi bi-cash-stack"></i> Salário x contas fixas</div>
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4 col-lg-3">
+              <label class="form-label" for="fx-salario">Salário fixo mensal (R$)</label>
+              <input class="form-control" id="fx-salario" placeholder="5.000,00" inputmode="decimal" />
+            </div>
+            <div class="col-md-4 col-lg-2">
+              <button type="button" class="btn btn-gold w-100" id="btn-salvar-salario">
+                <i class="bi bi-check2 me-1"></i> Salvar salário
+              </button>
+            </div>
+          </div>
+          <p class="msg" id="salario-msg"></p>
+          <div class="row g-3 mt-2" id="planej-metricas" style="display:none">
+            <div class="col-6 col-md-3">
+              <div class="metric-card accent">
+                <div class="metric-label">Salário mensal</div>
+                <strong id="pl-salario">—</strong>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="metric-card danger">
+                <div class="metric-label">Contas fixas (prev.)</div>
+                <strong id="pl-fixas">—</strong>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="metric-card ok" id="pl-card-sobra">
+                <div class="metric-label">Sobra no mês</div>
+                <strong id="pl-sobra">—</strong>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="metric-card">
+                <div class="metric-label">% do salário</div>
+                <strong id="pl-pct">—</strong>
+              </div>
+            </div>
+          </div>
+          <div id="planej-bar-wrap" style="display:none">
+            <div class="planej-bar"><div class="planej-bar-fill ok" id="planej-bar-fill" style="width:0%"></div></div>
+            <p class="planej-status ok mb-0" id="planej-status"></p>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-lg-5">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-plus-lg"></i> Nova conta fixa</div>
+              <div class="mb-2">
+                <label class="form-label" for="fx-nome">Nome</label>
+                <input class="form-control" id="fx-nome" placeholder="Aluguel" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="fx-valor">Valor mensal (R$)</label>
+                <input class="form-control" id="fx-valor" placeholder="1.200,00" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="fx-dia">Dia vencimento</label>
+                <input type="number" class="form-control" id="fx-dia" min="1" max="31" value="5" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="fx-hist">Palavra no histórico do banco</label>
+                <input class="form-control" id="fx-hist" placeholder="ALUGUEL" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="fx-cat">Categoria</label>
+                <select class="form-select" id="fx-cat"></select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="fx-obs">Observação</label>
+                <input class="form-control" id="fx-obs" placeholder="Opcional — ex.: pago no débito automático" />
+              </div>
+              <button type="button" class="btn btn-gold" id="btn-fx">Salvar conta fixa</button>
+              <p class="msg" id="fx-msg"></p>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-list-ul"></i> Cadastradas</div>
+              <div class="table-responsive">
+                <table class="table table-premium table-hover mb-0" id="tbl-fixas">
+                  <thead><tr><th>Nome</th><th class="num">Valor</th><th>Dia</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal fade" id="modal-editar-fixa" tabindex="-1" aria-labelledby="modal-editar-fixa-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-premium">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-editar-fixa-label"><i class="bi bi-pencil-square me-2"></i>Editar conta fixa</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="ed-fx-id" />
+          <div class="mb-2">
+            <label class="form-label" for="ed-fx-nome">Nome</label>
+            <input type="text" class="form-control" id="ed-fx-nome" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="ed-fx-valor">Valor mensal (R$)</label>
+            <input type="text" class="form-control" id="ed-fx-valor" inputmode="decimal" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="ed-fx-dia">Dia vencimento</label>
+            <input type="number" class="form-control" id="ed-fx-dia" min="1" max="31" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="ed-fx-hist">Palavra no histórico do banco</label>
+            <input type="text" class="form-control" id="ed-fx-hist" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="ed-fx-cat">Categoria</label>
+            <select class="form-select" id="ed-fx-cat"></select>
+          </div>
+          <div class="mb-0">
+            <label class="form-label" for="ed-fx-obs">Observação</label>
+            <input type="text" class="form-control" id="ed-fx-obs" />
+          </div>
+          <p class="msg" id="ed-fx-msg"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-gold btn-sm" id="btn-salvar-edicao-fixa">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modal-editar-lanc" tabindex="-1" aria-labelledby="modal-editar-lanc-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-premium">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-editar-lanc-label"><i class="bi bi-pencil-square me-2"></i>Editar lançamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="ed-id" />
+          <div class="mb-2">
+            <label class="form-label" for="ed-data">Data</label>
+            <input type="date" class="form-control" id="ed-data" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="ed-desc">Descrição</label>
+            <input type="text" class="form-control" id="ed-desc" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="ed-valor">Valor (R$)</label>
+            <input type="text" class="form-control" id="ed-valor" inputmode="decimal" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Tipo</label>
+            <div class="tipo-btns" id="ed-tipo-btns">
+              <button type="button" id="ed-btn-entrada"><i class="bi bi-arrow-down-circle me-1"></i> Entrada</button>
+              <button type="button" id="ed-btn-saida">Saída <i class="bi bi-arrow-up-circle ms-1"></i></button>
+            </div>
+          </div>
+          <div class="mb-0">
+            <label class="form-label" for="ed-cat">Categoria</label>
+            <select class="form-select" id="ed-cat"></select>
+          </div>
+          <p class="msg" id="ed-msg"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-gold btn-sm" id="btn-salvar-edicao">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="mobile-nav-toggle" id="btn-menu" aria-label="Menu">
+    <i class="bi bi-list"></i>
+  </button>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const API = "";
+    let tipoLanc = "saida";
+    let tipoEdicao = "saida";
+    let chartM = null, chartC = null, chartPlanej = null;
+    let modalEditarLanc = null;
+    let modalEditarFixa = null;
+
+    const CHART_COLORS = {
+      text: "#94a3b8",
+      grid: "rgba(255,255,255,0.06)",
+      emerald: "#34d399",
+      rose: "#f87171",
+      gold: "#d4af37",
+      palette: ["#d4af37", "#34d399", "#38bdf8", "#f87171", "#a78bfa", "#fb923c", "#22d3ee", "#94a3b8"],
+    };
+
+    function chartDefaults() {
+      return {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            labels: { color: CHART_COLORS.text, font: { family: "'Plus Jakarta Sans'" }, boxWidth: 12, padding: 14 },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: CHART_COLORS.text },
+            grid: { color: CHART_COLORS.grid },
+          },
+          y: {
+            ticks: { color: CHART_COLORS.text },
+            grid: { color: CHART_COLORS.grid },
+          },
+        },
+      };
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(API + path, {
+        headers: { "Content-Type": "application/json", ...opts.headers },
+        ...opts,
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(t || r.statusText);
+      }
+      if (r.status === 204) return null;
+      return r.json();
+    }
+
+    function fmtBr(n) {
+      if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
+      const x = Math.abs(Number(n));
+      const neg = Number(n) < 0;
+      const [w, f = "00"] = x.toFixed(2).split(".");
+      const p = w.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return (neg ? "-" : "") + p + "," + f;
+    }
+
+    function periodoQuery() {
+      const de = document.getElementById("f-de").value;
+      const ate = document.getElementById("f-ate").value;
+      const q = new URLSearchParams();
+      if (de) q.set("de", de);
+      if (ate) q.set("ate", ate);
+      const s = q.toString();
+      return s ? "?" + s : "";
+    }
+
+    function setTipo(t) {
+      tipoLanc = t;
+      document.getElementById("btn-entrada").className = t === "entrada" ? "sel-entrada" : "";
+      document.getElementById("btn-saida").className = t === "saida" ? "sel-saida" : "";
+    }
+
+    function setTipoEdicao(t) {
+      tipoEdicao = t;
+      document.getElementById("ed-btn-entrada").className = t === "entrada" ? "sel-entrada" : "";
+      document.getElementById("ed-btn-saida").className = t === "saida" ? "sel-saida" : "";
+    }
+
+    function preencherSelectCategorias(selId, valorAtual) {
+      const sel = document.getElementById(selId);
+      if (!sel.options.length) return;
+      sel.value = [...sel.options].some((o) => o.value === valorAtual) ? valorAtual : sel.options[0].value;
+    }
+
+    function abrirEditarLancamento(row) {
+      const valor = row.credito != null ? row.credito : row.debito;
+      document.getElementById("ed-id").value = row.manual_id;
+      document.getElementById("ed-data").value = row.data;
+      document.getElementById("ed-desc").value = row.descricao;
+      document.getElementById("ed-valor").value = fmtBr(valor);
+      setTipoEdicao(row.tipo_lanc || "saida");
+      preencherSelectCategorias("ed-cat", row.categoria);
+      const msg = document.getElementById("ed-msg");
+      msg.textContent = "";
+      msg.className = "msg";
+      if (!modalEditarLanc) {
+        modalEditarLanc = new bootstrap.Modal(document.getElementById("modal-editar-lanc"));
+      }
+      modalEditarLanc.show();
+    }
+
+    function closeMobileSidebar() {
+      document.getElementById("sidebar").classList.remove("open");
+      document.getElementById("sidebar-overlay").classList.remove("show");
+    }
+
+    async function carregarCategorias() {
+      const cats = await api("/api/categorias");
+      const opts = cats.map((c) => `<option value="${c}">${c}</option>`).join("");
+      document.getElementById("l-cat").innerHTML = opts;
+      document.getElementById("ed-cat").innerHTML = opts;
+      document.getElementById("fx-cat").innerHTML = opts;
+      document.getElementById("ed-fx-cat").innerHTML = opts;
+    }
+
+    function abrirEditarContaFixa(row) {
+      document.getElementById("ed-fx-id").value = row.id;
+      document.getElementById("ed-fx-nome").value = row.nome;
+      document.getElementById("ed-fx-valor").value = fmtBr(row.valor);
+      document.getElementById("ed-fx-dia").value = row.dia_vencimento || 5;
+      document.getElementById("ed-fx-hist").value = row.historico_contem || "";
+      document.getElementById("ed-fx-obs").value = row.observacao || "";
+      preencherSelectCategorias("ed-fx-cat", row.categoria);
+      const msg = document.getElementById("ed-fx-msg");
+      msg.textContent = "";
+      msg.className = "msg";
+      if (!modalEditarFixa) {
+        modalEditarFixa = new bootstrap.Modal(document.getElementById("modal-editar-fixa"));
+      }
+      modalEditarFixa.show();
+    }
+
+    async function carregarPeriodo() {
+      const p = await api("/api/periodo");
+      const hoje = new Date().toISOString().slice(0, 10);
+      const ini = p.de || hoje.slice(0, 8) + "01";
+      document.getElementById("f-de").value = ini;
+      document.getElementById("f-ate").value = p.ate || hoje;
+      document.getElementById("l-data").value = hoje;
+    }
+
+    function renderDashboardPlanejamento(p) {
+      const empty = document.getElementById("dash-plan-empty");
+      const content = document.getElementById("dash-plan-content");
+      const semDados = p.salario_mensal == null && (!p.contas || !p.contas.length);
+      if (semDados) {
+        empty.style.display = "";
+        content.style.display = "none";
+        empty.textContent = p.qtd_contas_ativas
+          ? "Cadastre seu salário fixo mensal em Contas fixas para ver o planejamento."
+          : "Cadastre salário e contas fixas para ver quanto sobra ou falta no mês.";
+        if (chartPlanej) { chartPlanej.destroy(); chartPlanej = null; }
+        return;
+      }
+      empty.style.display = "none";
+      content.style.display = "";
+      const f = p.fmt || {};
+      document.getElementById("dash-pl-salario").textContent =
+        p.salario_mensal != null ? (f.salario_mensal || fmtBr(p.salario_mensal)) : "—";
+      document.getElementById("dash-pl-fixas").textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
+      const cardRes = document.getElementById("dash-pl-card-resultado");
+      const lblRes = document.getElementById("dash-pl-lbl-resultado");
+      const elRes = document.getElementById("dash-pl-resultado");
+      const status = document.getElementById("dash-pl-status");
+      const bar = document.getElementById("dash-pl-bar");
+      if (p.salario_mensal == null) {
+        lblRes.textContent = "Contas fixas/mês";
+        elRes.textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
+        cardRes.className = "metric-card";
+        status.textContent = `${p.qtd_contas_ativas} conta(s) fixa(s) cadastrada(s). Informe o salário para calcular a sobra.`;
+        status.className = "planej-status";
+        bar.style.width = "0%";
+      } else if (p.falta != null && p.falta > 0) {
+        lblRes.textContent = "Falta no mês";
+        elRes.textContent = f.falta || fmtBr(p.falta);
+        cardRes.className = "metric-card danger";
+        status.textContent = `Déficit: contas fixas excedem o salário em ${f.falta || fmtBr(p.falta)}.`;
+        status.className = "planej-status danger";
+      } else {
+        lblRes.textContent = "Sobra estimada";
+        elRes.textContent = f.sobra || fmtBr(p.sobra);
+        cardRes.className = "metric-card ok";
+        status.textContent = `Após contas fixas, sobram ${f.sobra || fmtBr(p.sobra)} para gastos variáveis e reserva.`;
+        status.className = "planej-status ok";
+      }
+      const pct = p.pct_comprometido != null ? p.pct_comprometido : null;
+      document.getElementById("dash-pl-pct").textContent = pct != null ? pct.toFixed(1) + "%" : "—";
+      if (pct != null) {
+        const pctBar = Math.min(pct, 100);
+        bar.style.width = pctBar + "%";
+        bar.className = "planej-bar-fill " + (pct > 100 ? "danger" : pct > 85 ? "warn" : "ok");
+      } else {
+        bar.style.width = "0%";
+      }
+      const sal = p.salario_mensal || 0;
+      const contas = p.contas || [];
+      const tb = document.querySelector("#tbl-dash-fixas tbody");
+      tb.innerHTML = contas.map((c) => {
+        const pctC = sal > 0 ? (c.valor / sal * 100) : null;
+        return `<tr>
+          <td><strong>${c.nome}</strong><br><span class="text-secondary small">${c.categoria}</span></td>
+          <td class="num sai">${fmtBr(c.valor)}</td>
+          <td class="num">${pctC != null ? pctC.toFixed(1) + "%" : "—"}</td>
+          <td>${c.dia_vencimento || "—"}</td>
+        </tr>`;
+      }).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhuma conta fixa ativa</td></tr>";
+      document.getElementById("dash-fixas-total").textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
+      document.getElementById("dash-fixas-pct-total").textContent = pct != null ? pct.toFixed(1) + "%" : "—";
+      if (chartPlanej) chartPlanej.destroy();
+      chartPlanej = null;
+      if (p.salario_mensal != null && p.total_contas_fixas > 0) {
+        const deficit = p.falta != null && p.falta > 0;
+        chartPlanej = new Chart(document.getElementById("ch-planej"), {
+          type: "doughnut",
+          data: {
+            labels: deficit
+              ? ["Salário", "Excesso (falta)"]
+              : ["Contas fixas", "Sobra / disponível"],
+            datasets: [{
+              data: deficit
+                ? [p.salario_mensal, p.falta]
+                : [p.total_contas_fixas, Math.max(p.sobra || 0, 0)],
+              backgroundColor: deficit
+                ? [CHART_COLORS.gold, CHART_COLORS.rose]
+                : [CHART_COLORS.rose, CHART_COLORS.emerald],
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            plugins: {
+              legend: { position: "bottom", labels: { color: CHART_COLORS.text, boxWidth: 12 } },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ctx.label + ": " + fmtBr(ctx.raw),
+                },
+              },
+            },
+          },
+        });
+      }
+    }
+
+    async function refreshDashboard() {
+      const pq = periodoQuery();
+      const [ind, mensal, cats, planej] = await Promise.all([
+        api("/api/indicadores" + pq),
+        api("/api/resumo/mensal" + pq),
+        api("/api/resumo/categorias" + pq),
+        api("/api/contas-fixas/planejamento"),
+      ]);
+      renderDashboardPlanejamento(planej);
+      const f = ind.fmt || {};
+      document.getElementById("k-ent").textContent = f.entradas || "—";
+      document.getElementById("k-sai").textContent = f.saidas || "—";
+      document.getElementById("k-liq").textContent = f.liquido || "—";
+      document.getElementById("k-saldo").textContent = f.saldo_extrato || "—";
+      document.getElementById("k-fix").textContent = f.gastos_fixos || "—";
+      document.getElementById("k-var").textContent = f.gastos_variaveis || "—";
+      document.getElementById("k-pctf").textContent = ind.pct_fixas != null ? ind.pct_fixas.toFixed(1) + "%" : "—";
+      document.getElementById("k-ticket").textContent = ind.ticket_medio_debito ? fmtBr(ind.ticket_medio_debito) : "—";
+
+      const tb = document.querySelector("#tbl-cat tbody");
+      tb.innerHTML = cats.map((r) =>
+        `<tr><td>${r.categoria}</td><td class="num ent">${fmtBr(r.entrada)}</td><td class="num sai">${fmtBr(r.saida)}</td></tr>`
+      ).join("");
+
+      if (chartM) chartM.destroy();
+      chartM = new Chart(document.getElementById("ch-mensal"), {
+        type: "bar",
+        data: {
+          labels: mensal.map((m) => m.mes),
+          datasets: [
+            { label: "Entradas", data: mensal.map((m) => m.entradas), backgroundColor: CHART_COLORS.emerald, borderRadius: 6 },
+            { label: "Saídas", data: mensal.map((m) => m.saidas), backgroundColor: CHART_COLORS.rose, borderRadius: 6 },
+          ],
+        },
+        options: chartDefaults(),
+      });
+
+      const top = [...cats].sort((a, b) => b.saida - a.saida).slice(0, 8);
+      if (chartC) chartC.destroy();
+      chartC = new Chart(document.getElementById("ch-cat"), {
+        type: "doughnut",
+        data: {
+          labels: top.map((c) => c.categoria),
+          datasets: [{ data: top.map((c) => c.saida), backgroundColor: CHART_COLORS.palette, borderWidth: 0 }],
+        },
+        options: {
+          plugins: { legend: { position: "right", labels: { color: CHART_COLORS.text, boxWidth: 10, padding: 10 } } },
+        },
+      });
+    }
+
+    async function carregarRecentes() {
+      const rows = await api("/api/lancamentos/recentes?limite=8");
+      const ul = document.getElementById("lista-recentes");
+      if (!rows.length) {
+        ul.innerHTML = "<li class='text-secondary'>Nenhum lançamento ainda</li>";
+        return;
+      }
+      ul.innerHTML = rows.map((r) => {
+        const cls = r.tipo === "entrada" ? "ent" : "sai";
+        const s = r.tipo === "entrada" ? "+" : "−";
+        return `<li><span>${r.data} · ${r.descricao}</span><span class="${cls}">${s} ${fmtBr(r.valor)}</span></li>`;
+      }).join("");
+    }
+
+    async function carregarMovimentos() {
+      const rows = await api("/api/movimentos" + periodoQuery());
+      const tb = document.querySelector("#tbl-mov tbody");
+      tb.innerHTML = rows.map((r) => {
+        const acoes = r.origem === "manual" && r.manual_id
+          ? `<button type="button" class="link link-edit" data-edit-id="${r.manual_id}"
+              data-edit-data="${r.data}" data-edit-desc="${encodeURIComponent(r.descricao)}"
+              data-edit-valor="${r.credito != null ? r.credito : r.debito}"
+              data-edit-tipo="${r.tipo_lanc || "saida"}" data-edit-cat="${encodeURIComponent(r.categoria)}">
+              <i class="bi bi-pencil"></i> editar</button>
+            <button type="button" class="link" data-del="${r.manual_id}"><i class="bi bi-trash"></i> excluir</button>`
+          : "";
+        const orig = r.origem === "manual" ? '<span class="pill-manual">manual</span>' : '<span class="text-secondary">extrato</span>';
+        return `<tr>
+          <td>${r.data}</td><td>${r.descricao}</td>
+          <td class="num ent">${r.credito != null ? fmtBr(r.credito) : ""}</td>
+          <td class="num sai">${r.debito != null ? fmtBr(r.debito) : ""}</td>
+          <td>${r.categoria}</td><td>${orig}</td><td class="acoes-cell">${acoes}</td>
+        </tr>`;
+      }).join("");
+      tb.querySelectorAll("[data-edit-id]").forEach((btn) => {
+        btn.onclick = () => {
+          abrirEditarLancamento({
+            manual_id: btn.dataset.editId,
+            data: btn.dataset.editData,
+            descricao: decodeURIComponent(btn.dataset.editDesc),
+            credito: btn.dataset.editTipo === "entrada" ? Number(btn.dataset.editValor) : null,
+            debito: btn.dataset.editTipo === "saida" ? Number(btn.dataset.editValor) : null,
+            tipo_lanc: btn.dataset.editTipo,
+            categoria: decodeURIComponent(btn.dataset.editCat),
+          });
+        };
+      });
+      tb.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.onclick = async () => {
+          if (!confirm("Excluir este lançamento?")) return;
+          await api("/api/lancamentos/" + btn.dataset.del, { method: "DELETE" });
+          await refreshAll();
+        };
+      });
+    }
+
+    async function carregarExtratos() {
+      const rows = await api("/api/extratos");
+      const tb = document.querySelector("#tbl-extratos tbody");
+      const msg = document.getElementById("extratos-msg");
+      if (!rows.length) {
+        tb.innerHTML = "<tr><td colspan='7' class='text-secondary'>Nenhum extrato importado ainda</td></tr>";
+        if (msg) msg.textContent = "";
+        return;
+      }
+      tb.innerHTML = rows.map((r) => {
+        const titulo = r.legado
+          ? "Importação antiga (sem lote)"
+          : `#${r.id} · ${r.criado_em || "—"}`;
+        const periodo = r.data_min && r.data_max
+          ? `${r.data_min} → ${r.data_max}`
+          : "—";
+        return `<tr>
+          <td><strong>${titulo}</strong></td>
+          <td>${periodo}</td>
+          <td class="num">${r.qtd_lidas}</td>
+          <td class="num">${r.qtd_inseridas}</td>
+          <td class="num">${r.qtd_duplicadas}</td>
+          <td class="num">${r.qtd_movimentos}</td>
+          <td><button class="link" data-del-ext="${r.id}"><i class="bi bi-trash"></i> excluir</button></td>
+        </tr>`;
+      }).join("");
+      if (msg) msg.textContent = "";
+      tb.querySelectorAll("[data-del-ext]").forEach((btn) => {
+        btn.onclick = async () => {
+          const label = btn.closest("tr")?.querySelector("td strong")?.textContent || "este extrato";
+          if (!confirm(`Excluir ${label}? Todos os movimentos desse import serão removidos.`)) return;
+          try {
+            const res = await api("/api/extratos/" + btn.dataset.delExt, { method: "DELETE" });
+            if (msg) {
+              msg.textContent = `Extrato excluído (${res.movimentos_removidos} movimentos removidos).`;
+              msg.className = "msg ok";
+            }
+            await refreshAll();
+          } catch (e) {
+            if (msg) {
+              msg.textContent = "Erro: " + e.message;
+              msg.className = "msg err";
+            }
+          }
+        };
+      });
+    }
+
+    async function carregarPlanejamentoFixas() {
+      const p = await api("/api/contas-fixas/planejamento");
+      const f = p.fmt || {};
+      const salInput = document.getElementById("fx-salario");
+      if (p.salario_mensal != null && document.activeElement !== salInput) {
+        salInput.value = f.salario_mensal && f.salario_mensal !== "—" ? f.salario_mensal : fmtBr(p.salario_mensal);
+      }
+      const met = document.getElementById("planej-metricas");
+      const barWrap = document.getElementById("planej-bar-wrap");
+      const status = document.getElementById("planej-status");
+      const barFill = document.getElementById("planej-bar-fill");
+      if (p.salario_mensal == null) {
+        met.style.display = "none";
+        barWrap.style.display = "none";
+        return;
+      }
+      met.style.display = "";
+      barWrap.style.display = "";
+      document.getElementById("pl-salario").textContent = f.salario_mensal || fmtBr(p.salario_mensal);
+      document.getElementById("pl-fixas").textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
+      const cardSobra = document.getElementById("pl-card-sobra");
+      const lblSobra = cardSobra.querySelector(".metric-label");
+      if (p.falta != null && p.falta > 0) {
+        lblSobra.textContent = "Falta no mês";
+        document.getElementById("pl-sobra").textContent = f.falta || fmtBr(p.falta);
+        cardSobra.className = "metric-card danger";
+        status.textContent = `As contas fixas ultrapassam o salário em ${f.falta || fmtBr(p.falta)}.`;
+        status.className = "planej-status danger";
+      } else {
+        lblSobra.textContent = "Sobra no mês";
+        document.getElementById("pl-sobra").textContent = f.sobra || fmtBr(p.sobra);
+        cardSobra.className = "metric-card ok";
+        status.textContent = `Sobra estimada após contas fixas: ${f.sobra || fmtBr(p.sobra)}.`;
+        status.className = "planej-status ok";
+      }
+      const pct = p.pct_comprometido != null ? Math.min(p.pct_comprometido, 100) : 0;
+      document.getElementById("pl-pct").textContent = p.pct_comprometido != null ? p.pct_comprometido.toFixed(1) + "%" : "—";
+      barFill.style.width = pct + "%";
+      barFill.className = "planej-bar-fill " + (pct > 100 ? "danger" : pct > 85 ? "warn" : "ok");
+      if (pct > 100) barFill.style.width = "100%";
+    }
+
+    async function carregarFixas() {
+      await carregarPlanejamentoFixas();
+      const rows = await api("/api/contas-fixas");
+      const tb = document.querySelector("#tbl-fixas tbody");
+      tb.innerHTML = rows.filter((r) => r.ativo).map((r) =>
+        `<tr><td><strong>${r.nome}</strong></td><td class="num">${fmtBr(r.valor)}</td><td>${r.dia_vencimento || "—"}</td>
+        <td class="acoes-cell">
+          <button type="button" class="link link-edit" data-edit-fx="${r.id}"><i class="bi bi-pencil"></i> editar</button>
+          <button type="button" class="link" data-off="${r.id}"><i class="bi bi-trash"></i> desativar</button>
+        </td></tr>`
+      ).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhuma conta fixa</td></tr>";
+      const ativas = rows.filter((r) => r.ativo);
+      tb.querySelectorAll("[data-edit-fx]").forEach((btn) => {
+        btn.onclick = () => {
+          const row = ativas.find((r) => String(r.id) === btn.dataset.editFx);
+          if (row) abrirEditarContaFixa(row);
+        };
+      });
+      tb.querySelectorAll("[data-off]").forEach((b) => {
+        b.onclick = async () => {
+          await api("/api/contas-fixas/" + b.dataset.off, { method: "DELETE" });
+          await carregarFixas();
+          await refreshDashboard();
+        };
+      });
+    }
+
+    async function refreshAll() {
+      await Promise.all([
+        refreshDashboard(),
+        carregarRecentes(),
+        carregarMovimentos(),
+        carregarExtratos(),
+        carregarFixas(),
+      ]);
+    }
+
+    document.getElementById("btn-entrada").onclick = () => setTipo("entrada");
+    document.getElementById("btn-saida").onclick = () => setTipo("saida");
+    document.getElementById("ed-btn-entrada").onclick = () => setTipoEdicao("entrada");
+    document.getElementById("ed-btn-saida").onclick = () => setTipoEdicao("saida");
+    document.getElementById("btn-atualizar").onclick = refreshAll;
+    document.getElementById("btn-ir-fixas").onclick = () => {
+      document.querySelector('[data-tab="fixas"]').click();
+    };
+
+    document.getElementById("btn-salvar-edicao-fixa").onclick = async () => {
+      const msg = document.getElementById("ed-fx-msg");
+      msg.className = "msg";
+      const id = document.getElementById("ed-fx-id").value;
+      try {
+        await api("/api/contas-fixas/" + id, {
+          method: "PUT",
+          body: JSON.stringify({
+            nome: document.getElementById("ed-fx-nome").value,
+            valor: document.getElementById("ed-fx-valor").value,
+            dia_vencimento: Number(document.getElementById("ed-fx-dia").value) || null,
+            historico_contem: document.getElementById("ed-fx-hist").value || null,
+            categoria: document.getElementById("ed-fx-cat").value,
+            observacao: document.getElementById("ed-fx-obs").value || null,
+          }),
+        });
+        if (modalEditarFixa) modalEditarFixa.hide();
+        await carregarFixas();
+        await refreshDashboard();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+
+    document.getElementById("btn-salvar-edicao").onclick = async () => {
+      const msg = document.getElementById("ed-msg");
+      msg.className = "msg";
+      const id = document.getElementById("ed-id").value;
+      try {
+        await api("/api/lancamentos/" + id, {
+          method: "PUT",
+          body: JSON.stringify({
+            data: document.getElementById("ed-data").value,
+            descricao: document.getElementById("ed-desc").value,
+            valor: document.getElementById("ed-valor").value,
+            tipo: tipoEdicao,
+            categoria: document.getElementById("ed-cat").value,
+          }),
+        });
+        if (modalEditarLanc) modalEditarLanc.hide();
+        await refreshAll();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+
+    document.getElementById("btn-salvar-lanc").onclick = async () => {
+      const msg = document.getElementById("lanc-msg");
+      msg.className = "msg";
+      try {
+        await api("/api/lancamentos", {
+          method: "POST",
+          body: JSON.stringify({
+            data: document.getElementById("l-data").value,
+            descricao: document.getElementById("l-desc").value,
+            valor: document.getElementById("l-valor").value,
+            tipo: tipoLanc,
+            categoria: document.getElementById("l-cat").value,
+          }),
+        });
+        msg.textContent = "Lançamento salvo no banco.";
+        msg.className = "msg ok";
+        document.getElementById("l-desc").value = "";
+        document.getElementById("l-valor").value = "";
+        await refreshAll();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+
+    document.getElementById("btn-importar").onclick = async () => {
+      const msg = document.getElementById("import-msg");
+      msg.className = "msg";
+      const texto = document.getElementById("txt-extrato").value;
+      if (!texto.trim()) {
+        msg.textContent = "Cole ou selecione um extrato.";
+        msg.className = "msg err";
+        return;
+      }
+      try {
+        const res = await api("/api/extrato/importar", { method: "POST", body: JSON.stringify({ texto }) });
+        msg.textContent = `${res.lidas} linhas · ${res.inseridas} novas · ${res.duplicadas} duplicadas`;
+        msg.className = "msg ok";
+        await carregarPeriodo();
+        await refreshAll();
+        document.querySelector('[data-tab="extratos"]').click();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+
+    document.getElementById("arq-extrato").onchange = (ev) => {
+      const f = ev.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { document.getElementById("txt-extrato").value = r.result; };
+      r.readAsText(f, "UTF-8");
+    };
+
+    document.getElementById("btn-salvar-salario").onclick = async () => {
+      const msg = document.getElementById("salario-msg");
+      msg.className = "msg";
+      try {
+        const res = await api("/api/salario-mensal", {
+          method: "PUT",
+          body: JSON.stringify({ valor: document.getElementById("fx-salario").value }),
+        });
+        msg.textContent = "Salário salvo.";
+        msg.className = "msg ok";
+        if (res.planejamento) {
+          const p = res.planejamento;
+          const f = p.fmt || {};
+          document.getElementById("fx-salario").value = f.salario_mensal || fmtBr(p.salario_mensal);
+        }
+        await carregarPlanejamentoFixas();
+        await refreshDashboard();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+
+    document.getElementById("btn-fx").onclick = async () => {
+      const msg = document.getElementById("fx-msg");
+      try {
+        await api("/api/contas-fixas", {
+          method: "POST",
+          body: JSON.stringify({
+            nome: document.getElementById("fx-nome").value,
+            valor: document.getElementById("fx-valor").value,
+            dia_vencimento: Number(document.getElementById("fx-dia").value) || null,
+            historico_contem: document.getElementById("fx-hist").value || null,
+            categoria: document.getElementById("fx-cat").value,
+            observacao: document.getElementById("fx-obs").value || null,
+          }),
+        });
+        msg.textContent = "Conta fixa salva.";
+        msg.className = "msg ok";
+        document.getElementById("fx-nome").value = "";
+        document.getElementById("fx-valor").value = "";
+        document.getElementById("fx-hist").value = "";
+        document.getElementById("fx-obs").value = "";
+        await carregarFixas();
+        await refreshDashboard();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = "msg err";
+      }
+    };
+
+    document.getElementById("nav-tabs").onclick = (e) => {
+      const btn = e.target.closest("button[data-tab]");
+      if (!btn) return;
+      document.querySelectorAll(".tabs .nav-link").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+      document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+      closeMobileSidebar();
+      if (btn.dataset.tab === "extratos") carregarExtratos();
+      if (btn.dataset.tab === "fixas") carregarPlanejamentoFixas();
+    };
+
+    document.getElementById("btn-menu").onclick = () => {
+      document.getElementById("sidebar").classList.toggle("open");
+      document.getElementById("sidebar-overlay").classList.toggle("show");
+    };
+    document.getElementById("sidebar-overlay").onclick = closeMobileSidebar;
+
+    document.getElementById("btn-recat").onclick = async () => {
+      const msg = document.getElementById("import-msg");
+      try {
+        const r = await api("/api/recategorizar", { method: "POST" });
+        if (msg) {
+          msg.textContent = r.atualizados + " movimentos recategorizados.";
+          msg.className = "msg ok";
+        }
+        await refreshAll();
+      } catch (e) {
+        if (msg) {
+          msg.textContent = e.message;
+          msg.className = "msg err";
+        }
+      }
+    };
+
+    (async function init() {
+      const badge = document.getElementById("db-badge");
+      const badgeWrap = document.getElementById("db-badge-wrap");
+      try {
+        const h = await api("/api/health");
+        badge.textContent = "banco: " + h.banco;
+        badgeWrap.classList.remove("offline");
+        await carregarCategorias();
+        await carregarPeriodo();
+        setTipo("saida");
+        setTipoEdicao("saida");
+        await api("/api/recategorizar", { method: "POST" });
+        await refreshAll();
+      } catch (e) {
+        badge.textContent = "API offline";
+        badgeWrap.classList.add("offline");
+        document.getElementById("lanc-msg").textContent =
+          "Inicie o sistema: docker compose up -d (ou uvicorn api:app --port 8080)";
+        document.getElementById("lanc-msg").className = "msg err";
+      }
+    })();
+  </script>
+</body>
+</html>
