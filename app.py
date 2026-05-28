@@ -34,9 +34,11 @@ from financeiro.db import (
     atualizar_conta_fixa,
     salvar_conta_fixa,
     salvar_orcamento,
+    saldo_disponivel,
     total_contas_fixas_previsto,
     ultimo_saldo,
 )
+from financeiro.ui_tabs import tab_config, tab_dividas, tab_investimentos, tab_metas, tab_planejamento, tab_reserva
 from financeiro.parser import CATEGORIAS_SUGERIDAS, categoria_por_historico, parse_extrato_texto
 
 ROOT = Path(__file__).resolve().parent
@@ -179,10 +181,8 @@ def _tab_dashboard(di: date, df: date) -> None:
                 st.write(f"{r['data']} · {s} {_fmt_br(_parse_valor(r['valor']))} · {r['descricao']}")
 
     with col_dash:
-        _render_planejamento_dashboard()
-
         ind = calcular_indicadores(di, df)
-        saldo_banco = ultimo_saldo()
+        saldo_banco, origem_saldo = saldo_disponivel(DB_PATH)
         previsto_fixas = total_contas_fixas_previsto()
 
         st.subheader("Indicadores do período")
@@ -190,7 +190,11 @@ def _tab_dashboard(di: date, df: date) -> None:
         r1[0].metric("Entradas (créditos)", _fmt_br(ind.total_creditos))
         r1[1].metric("Saídas (débitos)", _fmt_br(ind.total_debitos))
         r1[2].metric("Resultado líquido", _fmt_br(ind.saldo_liquido))
-        r1[3].metric("Saldo final (extrato)", _fmt_br(saldo_banco))
+        r1[3].metric(
+            "Saldo disponível",
+            _fmt_br(saldo_banco),
+            help="Coluna saldo do extrato ou, se indisponível (ex.: Nubank CSV), entradas − saídas.",
+        )
 
         r2 = st.columns(4)
         r2[0].metric("Gastos fixos (estim.)", _fmt_br(ind.total_fixas))
@@ -208,6 +212,26 @@ def _tab_dashboard(di: date, df: date) -> None:
             r3[1].metric("% variáveis nos débitos", f"{ind.pct_variaveis:.1f}%")
         r3[2].metric("Maior débito", _fmt_br(ind.maior_debito))
         r3[3].metric("Média diária de gastos", _fmt_br(ind.media_diaria_gastos))
+
+        plan = resumo_salario_contas_fixas(DB_PATH)
+        if plan["salario_mensal"] is not None or plan["total_contas_fixas"] > 0:
+            st.caption("Salário x contas fixas (mensal)")
+            rf = st.columns(4)
+            rf[0].metric(
+                "Salário fixo",
+                _fmt_br(plan["salario_mensal"]) if plan["salario_mensal"] is not None else "—",
+            )
+            rf[1].metric("Contas fixas (prev.)", _fmt_br(plan["total_contas_fixas"]))
+            if plan["salario_mensal"] is None:
+                rf[2].metric("Sobra / falta", "—")
+            elif plan["sobra"] is not None:
+                rf[2].metric("Sobra estimada", _fmt_br(plan["sobra"]))
+            else:
+                rf[2].metric("Falta no mês", _fmt_br(plan["falta"]))
+            rf[3].metric(
+                "% do salário",
+                f"{plan['pct_comprometido']:.1f}%" if plan["pct_comprometido"] is not None else "—",
+            )
 
         if ind.total_manuais_entrada or ind.total_manuais_saida:
             st.caption(
@@ -635,7 +659,9 @@ def main() -> None:
     )
     st.markdown(_PREMIUM_CSS, unsafe_allow_html=True)
     st.markdown("## Finanças Pro")
-    st.caption("Extrato bancário · contas fixas · lançamentos · orçamento · dashboard premium")
+    st.caption(
+        "Extrato · contas fixas · orçamento · reserva · metas · investimentos · planejamento"
+    )
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     init_db(DB_PATH)
@@ -658,6 +684,12 @@ def main() -> None:
             "Contas fixas",
             "Lançamentos manuais",
             "Orçamento",
+            "Planejamento",
+            "Reserva",
+            "Metas",
+            "Investimentos",
+            "Dívidas",
+            "Configurações",
         ]
     )
     with tabs[0]:
@@ -676,6 +708,18 @@ def main() -> None:
         _tab_manuais(di, df)
     with tabs[7]:
         _tab_orcamento()
+    with tabs[8]:
+        tab_planejamento(DB_PATH, di, df)
+    with tabs[9]:
+        tab_reserva(DB_PATH)
+    with tabs[10]:
+        tab_metas(DB_PATH)
+    with tabs[11]:
+        tab_investimentos(DB_PATH)
+    with tabs[12]:
+        tab_dividas(DB_PATH)
+    with tabs[13]:
+        tab_config(DB_PATH)
 
 
 if __name__ == "__main__":

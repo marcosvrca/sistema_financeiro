@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS importacoes_extrato (
     qtd_inseridas INTEGER NOT NULL DEFAULT 0,
     qtd_duplicadas INTEGER NOT NULL DEFAULT 0,
     data_min TEXT,
-    data_max TEXT
+    data_max TEXT,
+    banco TEXT
 );
 
 CREATE TABLE IF NOT EXISTS movimentos (
@@ -34,6 +35,18 @@ CREATE TABLE IF NOT EXISTS contas_fixas (
     ativo INTEGER NOT NULL DEFAULT 1,
     observacao TEXT
 );
+
+CREATE TABLE IF NOT EXISTS contas_fixas_mes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conta_fixa_id INTEGER NOT NULL REFERENCES contas_fixas(id),
+    mes TEXT NOT NULL,
+    valor_real TEXT NOT NULL,
+    pago INTEGER NOT NULL DEFAULT 0,
+    data_pagamento TEXT,
+    observacao TEXT,
+    UNIQUE (conta_fixa_id, mes)
+);
+CREATE INDEX IF NOT EXISTS idx_contas_fixas_mes_mes ON contas_fixas_mes(mes);
 
 CREATE TABLE IF NOT EXISTS lancamentos_manuais (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +81,8 @@ CREATE TABLE IF NOT EXISTS importacoes_extrato (
     qtd_inseridas INTEGER NOT NULL DEFAULT 0,
     qtd_duplicadas INTEGER NOT NULL DEFAULT 0,
     data_min DATE,
-    data_max DATE
+    data_max DATE,
+    banco TEXT
 );
 
 CREATE TABLE IF NOT EXISTS movimentos (
@@ -96,6 +110,18 @@ CREATE TABLE IF NOT EXISTS contas_fixas (
     ativo SMALLINT NOT NULL DEFAULT 1,
     observacao TEXT
 );
+
+CREATE TABLE IF NOT EXISTS contas_fixas_mes (
+    id SERIAL PRIMARY KEY,
+    conta_fixa_id INTEGER NOT NULL REFERENCES contas_fixas(id),
+    mes TEXT NOT NULL,
+    valor_real NUMERIC(14,2) NOT NULL,
+    pago SMALLINT NOT NULL DEFAULT 0,
+    data_pagamento DATE,
+    observacao TEXT,
+    UNIQUE (conta_fixa_id, mes)
+);
+CREATE INDEX IF NOT EXISTS idx_contas_fixas_mes_mes ON contas_fixas_mes(mes);
 
 CREATE TABLE IF NOT EXISTS lancamentos_manuais (
     id SERIAL PRIMARY KEY,

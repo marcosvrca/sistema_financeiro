@@ -378,6 +378,98 @@
     }
     .period-bar .period-field { min-width: 140px; flex: 1; max-width: 180px; }
 
+    .filter-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .filter-bar .filter-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .filter-chip {
+      border: 1px solid var(--border);
+      background: rgba(8, 12, 20, 0.6);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .filter-chip:hover {
+      color: var(--text);
+      border-color: rgba(212, 175, 55, 0.35);
+    }
+    .filter-chip.active {
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.22) 0%, rgba(212, 175, 55, 0.08) 100%);
+      border-color: rgba(212, 175, 55, 0.45);
+      box-shadow: 0 0 16px rgba(212, 175, 55, 0.12);
+    }
+    .filter-chip .chip-count {
+      font-size: 0.7rem;
+      opacity: 0.75;
+      font-weight: 500;
+    }
+    .quick-period {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .quick-period button {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 0.3rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .quick-period button:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .filtro-ativo-badge {
+      font-size: 0.8rem;
+      color: var(--gold);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .filtro-opcoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .filtro-opcoes label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      margin: 0;
+    }
+
     .planej-bar {
       height: 10px;
       border-radius: 999px;
@@ -471,6 +563,27 @@
         <button type="button" class="nav-link" data-tab="fixas">
           <i class="bi bi-calendar-check"></i> Contas fixas
         </button>
+        <button type="button" class="nav-link" data-tab="planej">
+          <i class="bi bi-calendar3"></i> Planejamento
+        </button>
+        <button type="button" class="nav-link" data-tab="reserva">
+          <i class="bi bi-shield-check"></i> Reserva
+        </button>
+        <button type="button" class="nav-link" data-tab="metas">
+          <i class="bi bi-bullseye"></i> Metas
+        </button>
+        <button type="button" class="nav-link" data-tab="invest">
+          <i class="bi bi-graph-up"></i> Investimentos
+        </button>
+        <button type="button" class="nav-link" data-tab="cartao">
+          <i class="bi bi-credit-card"></i> Cartão de crédito
+        </button>
+        <button type="button" class="nav-link" data-tab="dividas">
+          <i class="bi bi-credit-card-2-back"></i> Dívidas
+        </button>
+        <button type="button" class="nav-link" data-tab="config">
+          <i class="bi bi-gear"></i> Configurações
+        </button>
       </nav>
 
       <div class="db-status" id="db-badge-wrap">
@@ -482,96 +595,57 @@
     <main class="main-content">
       <!-- DASHBOARD -->
       <section id="panel-inicio" class="panel active">
-        <div class="page-header">
-          <h2>Dashboard</h2>
-          <p class="lead">Visão consolidada — salário, contas fixas, movimentos e categorias.</p>
+        <div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-2">
+          <div>
+            <h2>Dashboard</h2>
+            <p class="lead mb-0">Visão consolidada do seu período — entradas, saídas e categorias.</p>
+          </div>
+          <span class="filtro-ativo-badge" id="filtro-ativo-label" style="display:none">
+            <i class="bi bi-funnel-fill"></i> <span id="filtro-ativo-texto"></span>
+          </span>
         </div>
+        <div id="alertas-dash" class="mb-3"></div>
 
-        <div class="card-premium mb-4" id="dash-planejamento">
-          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-            <div class="card-title mb-0"><i class="bi bi-pie-chart-fill"></i> Salário x contas fixas (mensal)</div>
-            <button type="button" class="btn btn-outline-light btn-sm" id="btn-ir-fixas">
-              <i class="bi bi-gear me-1"></i> Configurar
-            </button>
-          </div>
-          <div id="dash-plan-empty" class="text-secondary small">
-            Cadastre seu salário e as contas fixas para ver quanto sobra ou falta no mês.
-          </div>
-          <div id="dash-plan-content" style="display:none">
-            <div class="row g-3 mb-3">
-              <div class="col-6 col-md-3">
-                <div class="metric-card accent">
-                  <div class="metric-label">Salário fixo</div>
-                  <strong id="dash-pl-salario">—</strong>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="metric-card danger">
-                  <div class="metric-label">Contas fixas</div>
-                  <strong id="dash-pl-fixas">—</strong>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="metric-card ok" id="dash-pl-card-resultado">
-                  <div class="metric-label" id="dash-pl-lbl-resultado">Sobra estimada</div>
-                  <strong id="dash-pl-resultado">—</strong>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="metric-card">
-                  <div class="metric-label">% do salário</div>
-                  <strong id="dash-pl-pct">—</strong>
-                </div>
-              </div>
+        <div class="card-premium filter-bar mb-4">
+          <div class="period-bar mb-0" style="margin-bottom:0">
+            <div class="period-field">
+              <label class="form-label" for="f-de">Período — de</label>
+              <input type="date" class="form-control" id="f-de" />
             </div>
-            <div class="planej-bar mb-2"><div class="planej-bar-fill ok" id="dash-pl-bar" style="width:0%"></div></div>
-            <p class="planej-status ok mb-3" id="dash-pl-status"></p>
-            <div class="row g-3">
-              <div class="col-lg-5">
-                <div class="chart-wrap" style="min-height:200px">
-                  <canvas id="ch-planej"></canvas>
-                </div>
-              </div>
-              <div class="col-lg-7">
-                <div class="table-responsive">
-                  <table class="table table-premium table-sm mb-0" id="tbl-dash-fixas">
-                    <thead>
-                      <tr>
-                        <th>Conta fixa</th>
-                        <th class="num">Valor/mês</th>
-                        <th class="num">% salário</th>
-                        <th>Dia</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                    <tfoot>
-                      <tr class="fw-semibold">
-                        <td>Total previsto</td>
-                        <td class="num" id="dash-fixas-total">—</td>
-                        <td class="num" id="dash-fixas-pct-total">—</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
+            <div class="period-field">
+              <label class="form-label" for="f-ate">Até</label>
+              <input type="date" class="form-control" id="f-ate" />
             </div>
-          </div>
-        </div>
-
-        <div class="card-premium period-bar mb-4">
-          <div class="period-field">
-            <label class="form-label" for="f-de">Período — de</label>
-            <input type="date" class="form-control" id="f-de" />
-          </div>
-          <div class="period-field">
-            <label class="form-label" for="f-ate">Até</label>
-            <input type="date" class="form-control" id="f-ate" />
+            <div>
+              <button type="button" class="btn btn-gold" id="btn-atualizar">
+                <i class="bi bi-arrow-repeat me-1"></i> Atualizar
+              </button>
+            </div>
           </div>
           <div>
-            <button type="button" class="btn btn-gold" id="btn-atualizar">
-              <i class="bi bi-arrow-repeat me-1"></i> Atualizar
-            </button>
+            <div class="filter-label">Atalhos de período</div>
+            <div class="quick-period" id="quick-period">
+              <button type="button" data-qperiod="mes">Este mês</button>
+              <button type="button" data-qperiod="mes-anterior">Mês anterior</button>
+              <button type="button" data-qperiod="trimestre">Últimos 3 meses</button>
+              <button type="button" data-qperiod="ano">Este ano</button>
+              <button type="button" data-qperiod="tudo">Todo o período</button>
+            </div>
+          </div>
+          <div>
+            <div class="filter-label">Banco / extrato</div>
+            <div class="filter-chips" id="filtro-bancos">
+              <button type="button" class="filter-chip active" data-banco="">
+                <i class="bi bi-layers"></i> Todos
+              </button>
+            </div>
+          </div>
+          <div class="filtro-opcoes">
+            <label>
+              <input type="checkbox" class="form-check-input" id="f-manuais" checked />
+              Incluir lançamentos manuais
+            </label>
+            <span class="text-secondary small">Com um banco selecionado, o padrão é só o extrato daquele banco.</span>
           </div>
         </div>
 
@@ -671,6 +745,40 @@
               </div>
             </div>
 
+            <div class="row g-3 mb-4" id="metrics-fixas" style="display:none">
+              <div class="col-12">
+                <div class="form-label text-secondary mb-0"><i class="bi bi-calendar-check"></i> Salário x contas fixas (mensal)</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card accent">
+                  <i class="bi bi-cash-stack metric-icon"></i>
+                  <div class="metric-label">Salário fixo</div>
+                  <strong id="k-sal-fix">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card danger">
+                  <i class="bi bi-calendar-check metric-icon"></i>
+                  <div class="metric-label">Contas fixas (prev.)</div>
+                  <strong id="k-cx-fix">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card ok" id="k-card-sobra-fix">
+                  <i class="bi bi-piggy-bank metric-icon"></i>
+                  <div class="metric-label" id="k-lbl-sobra-fix">Sobra estimada</div>
+                  <strong id="k-sobra-fix">—</strong>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <i class="bi bi-percent metric-icon"></i>
+                  <div class="metric-label">% do salário</div>
+                  <strong id="k-pct-sal-fix">—</strong>
+                </div>
+              </div>
+            </div>
+
             <div class="row g-3 mb-4">
               <div class="col-md-6">
                 <div class="card-premium chart-wrap">
@@ -708,7 +816,7 @@
       <section id="panel-mov" class="panel">
         <div class="page-header">
           <h2>Movimentos</h2>
-          <p class="lead">Extrato e lançamentos manuais no período selecionado.</p>
+          <p class="lead">Extrato e lançamentos manuais — respeitam período e filtro de banco do Dashboard.</p>
         </div>
         <div class="card-premium">
           <div class="table-responsive">
@@ -738,6 +846,22 @@
             <input type="file" class="form-control" id="arq-extrato" accept=".txt,.csv" />
           </div>
           <div class="mb-3">
+            <label class="form-label" for="imp-banco">Banco do extrato</label>
+            <select class="form-select" id="imp-banco">
+              <option value="">Detectar automaticamente</option>
+              <option value="Nubank">Nubank</option>
+              <option value="BRB">BRB</option>
+              <option value="Bradesco">Bradesco</option>
+              <option value="Itaú">Itaú</option>
+              <option value="Santander">Santander</option>
+              <option value="Caixa">Caixa</option>
+              <option value="Banco do Brasil">Banco do Brasil</option>
+              <option value="Inter">Inter</option>
+              <option value="C6 Bank">C6 Bank</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <div class="mb-3">
             <label class="form-label" for="txt-extrato">Conteúdo do extrato</label>
             <textarea class="form-control" id="txt-extrato" rows="12" placeholder="Cole o extrato aqui…"></textarea>
           </div>
@@ -760,6 +884,7 @@
               <thead>
                 <tr>
                   <th>Importação</th>
+                  <th>Banco</th>
                   <th>Período</th>
                   <th class="num">Lidas</th>
                   <th class="num">Gravadas</th>
@@ -777,9 +902,14 @@
 
       <!-- CONTAS FIXAS -->
       <section id="panel-fixas" class="panel">
-        <div class="page-header">
-          <h2>Contas fixas</h2>
-          <p class="lead">Salário mensal, despesas recorrentes e controle do que sobra ou falta no mês.</p>
+        <div class="page-header d-flex flex-wrap align-items-start justify-content-between gap-3">
+          <div>
+            <h2>Contas fixas</h2>
+            <p class="lead mb-0">Salário mensal, despesas recorrentes e controle do que sobra ou falta no mês.</p>
+          </div>
+          <button type="button" class="btn btn-gold" id="btn-abrir-mes-fixas">
+            <i class="bi bi-calendar2-check me-1"></i> Controle do mês
+          </button>
         </div>
 
         <div class="card-premium mb-4" id="card-planejamento">
@@ -873,6 +1003,342 @@
           </div>
         </div>
       </section>
+
+      <!-- PLANEJAMENTO -->
+      <section id="panel-planej" class="panel">
+        <div class="page-header">
+          <h2>Planejamento</h2>
+          <p class="lead">Calendário de vencimentos, orçamento com alertas, 50/30/20 e comparativos.</p>
+        </div>
+        <div class="card-premium period-bar mb-4">
+          <div class="period-field">
+            <label class="form-label" for="pl-mes">Mês (AAAA-MM)</label>
+            <input class="form-control" id="pl-mes" placeholder="2025-05" />
+          </div>
+          <button type="button" class="btn btn-gold" id="btn-pl-atualizar"><i class="bi bi-arrow-repeat me-1"></i> Atualizar</button>
+        </div>
+        <div class="row g-3 mb-4" id="pl-cal-metrics"></div>
+        <div class="card-premium mb-4">
+          <div class="card-title"><i class="bi bi-calendar-event"></i> Vencimentos do mês</div>
+          <div class="table-responsive">
+            <table class="table table-premium table-hover mb-0" id="tbl-calendario">
+              <thead><tr><th>Dia</th><th>Conta</th><th class="num">Valor</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-premium mb-4">
+          <div class="card-title"><i class="bi bi-pie-chart"></i> Orçamento do mês</div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-3"><select class="form-select" id="orc-cat"></select></div>
+            <div class="col-md-2"><input class="form-control" id="orc-lim" placeholder="Limite R$" /></div>
+            <div class="col-md-2"><button class="btn btn-gold w-100" id="btn-orc-salvar">Salvar limite</button></div>
+            <div class="col-md-2"><button class="btn btn-outline-light w-100" id="btn-orc-copiar">Copiar mês ant.</button></div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-premium table-hover mb-0" id="tbl-orcamento">
+              <thead><tr><th>Categoria</th><th class="num">Limite</th><th class="num">Gasto</th><th>Uso</th><th>Alerta</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-sliders"></i> Regra 50/30/20</div>
+              <div class="row g-2 mb-2">
+                <div class="col-4"><input type="number" class="form-control" id="r50-n" placeholder="50" /></div>
+                <div class="col-4"><input type="number" class="form-control" id="r50-d" placeholder="30" /></div>
+                <div class="col-4"><input type="number" class="form-control" id="r50-p" placeholder="20" /></div>
+              </div>
+              <button class="btn btn-gold btn-sm" id="btn-503020">Salvar regra</button>
+              <pre class="small text-secondary mt-3 mb-0" id="out-503020"></pre>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-arrow-left-right"></i> Comparativo mensal</div>
+              <pre class="small mb-0" id="out-comparativo"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESERVA DE EMERGÊNCIA -->
+      <section id="panel-reserva" class="panel">
+        <div class="page-header">
+          <h2>Reserva de emergência</h2>
+          <p class="lead">Colchão financeiro para imprevistos — acompanha seu saldo automaticamente.</p>
+        </div>
+        <div class="card-premium mb-4">
+          <div class="card-title"><i class="bi bi-shield-check"></i> Sua reserva</div>
+          <p class="small text-secondary mb-3">
+            A meta é <strong>N × contas fixas</strong> cadastradas. O progresso usa o saldo do extrato
+            ou, se não houver (Nubank CSV), <strong>entradas − saídas</strong>. Não precisa lançar aportes aqui.
+          </p>
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-3">
+              <label class="form-label" for="res-mult">Meses de despesas fixas</label>
+              <input type="number" class="form-control" id="res-mult" min="1" max="24" value="6" />
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-gold w-100" id="btn-res-mult">Salvar meta</button>
+            </div>
+          </div>
+          <p class="msg" id="reserva-msg"></p>
+          <div class="row g-3" id="res-metrics"></div>
+          <div id="reserva-bar-wrap" class="mt-3" style="display:none">
+            <div class="planej-bar"><div class="planej-bar-fill ok" id="reserva-bar-fill" style="width:0%"></div></div>
+            <p class="planej-status ok mb-0 mt-2" id="reserva-status"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- METAS -->
+      <section id="panel-metas" class="panel">
+        <div class="page-header">
+          <h2>Metas e projetos</h2>
+          <p class="lead">Objetivos com valor alvo — registre aportes quando guardar dinheiro.</p>
+        </div>
+        <p class="msg" id="meta-msg"></p>
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-flag"></i> Metas personalizadas</div>
+              <p class="small text-secondary mb-3">Crie a meta e, depois, registre cada valor que for guardando.</p>
+              <input class="form-control mb-2" id="meta-nome" placeholder="Nome (ex.: Entrada apto)" />
+              <input class="form-control mb-2" id="meta-alvo" placeholder="Quanto quer juntar R$" />
+              <input class="form-control mb-2" id="meta-inicial" placeholder="Quanto já tem hoje R$" value="0" />
+              <button class="btn btn-gold" id="btn-meta">Criar meta</button>
+              <div class="table-responsive mt-3">
+                <table class="table table-premium mb-0" id="tbl-metas">
+                  <thead><tr><th>Meta</th><th>Progresso</th><th>Registrar aporte</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-stars"></i> Projetos / sonhos</div>
+              <input class="form-control mb-2" id="proj-nome" placeholder="Ex.: Viagem" />
+              <input class="form-control mb-2" id="proj-alvo" placeholder="Valor alvo R$" />
+              <input class="form-control mb-2" id="proj-acum" placeholder="Já guardado R$" value="0" />
+              <button class="btn btn-gold" id="btn-proj">Criar projeto</button>
+              <div class="table-responsive mt-3">
+                <table class="table table-premium mb-0" id="tbl-projetos">
+                  <thead><tr><th>Projeto</th><th>Progresso</th><th>Registrar aporte</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INVESTIMENTOS -->
+      <section id="panel-invest" class="panel">
+        <div class="page-header">
+          <h2>Investimentos</h2>
+          <p class="lead">Fluxo simples: cadastre ativo, registre movimentações e acompanhe sua carteira.</p>
+        </div>
+        <div class="card-premium mb-4">
+          <div class="small text-secondary">
+            <strong>Passo 1:</strong> cadastre seus ativos.<br />
+            <strong>Passo 2:</strong> registre aporte, resgate ou rendimento.<br />
+            <strong>Passo 3:</strong> acompanhe patrimônio e alocação por tipo.
+          </div>
+          <p class="msg mb-0 mt-2" id="inv-msg"></p>
+        </div>
+        <div class="row g-3 mb-4" id="inv-metrics"></div>
+        <div class="row g-4">
+          <div class="col-lg-5">
+            <div class="card-premium mb-4">
+              <div class="card-title"><i class="bi bi-plus-lg"></i> 1) Cadastrar ativo</div>
+              <input class="form-control mb-2" id="inv-nome" placeholder="Ex.: Tesouro Selic, CDB Banco X" />
+              <select class="form-select mb-2" id="inv-tipo"></select>
+              <input class="form-control mb-2" id="inv-inst" placeholder="Instituição (opcional)" />
+              <input class="form-control mb-2" id="inv-val" placeholder="Valor inicial R$" value="0" />
+              <button class="btn btn-gold w-100" id="btn-inv-ativo">Salvar ativo</button>
+            </div>
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-arrow-down-up"></i> 2) Registrar movimentação</div>
+              <select class="form-select mb-2" id="inv-mov-ativo"></select>
+              <input type="date" class="form-control mb-2" id="inv-mov-data" />
+              <select class="form-select mb-2" id="inv-mov-tipo">
+                <option value="aporte">Aporte</option><option value="resgate">Resgate</option><option value="rendimento">Rendimento</option>
+              </select>
+              <input class="form-control mb-2" id="inv-mov-val" placeholder="Valor R$" />
+              <button class="btn btn-gold w-100" id="btn-inv-mov">Registrar movimentação</button>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="card-premium mb-4">
+              <div class="card-title"><i class="bi bi-wallet2"></i> 3) Carteira atual</div>
+              <div class="table-responsive">
+                <table class="table table-premium mb-0" id="tbl-invest">
+                  <thead><tr><th>Ativo</th><th>Tipo</th><th>Instituição</th><th class="num">Valor</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card-premium mb-4">
+              <div class="card-title"><i class="bi bi-bullseye"></i> Meta de alocação</div>
+              <div class="row g-2 mb-2">
+                <div class="col-7"><select class="form-select" id="inv-aloc-tipo"></select></div>
+                <div class="col-3"><input class="form-control" id="inv-aloc-pct" type="number" min="0" max="100" placeholder="%" /></div>
+                <div class="col-2"><button class="btn btn-gold w-100" id="btn-inv-aloc">OK</button></div>
+              </div>
+              <div class="small text-secondary" id="inv-aloc-list">Sem metas de alocação.</div>
+            </div>
+            <div class="card-premium chart-wrap">
+              <div class="card-title"><i class="bi bi-pie-chart"></i> Por tipo</div>
+              <canvas id="ch-invest"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CARTAO DE CREDITO -->
+      <section id="panel-cartao" class="panel">
+        <div class="page-header">
+          <h2>Cartão de crédito</h2>
+          <p class="lead">Cadastre cartões, lance compras parceladas e acompanhe vencimentos.</p>
+        </div>
+        <div class="card-premium mb-4">
+          <div class="small text-secondary">
+            <strong>Como usar:</strong> 1) cadastre o cartão, 2) registre a compra com parcelas, 3) acompanhe parcelas restantes.
+          </div>
+          <p class="msg mt-2 mb-0" id="cc-msg"></p>
+        </div>
+        <div class="row g-3 mb-4" id="cc-metrics"></div>
+
+        <div class="row g-4 mb-4">
+          <div class="col-lg-5">
+            <div class="card-premium mb-3">
+              <div class="card-title"><i class="bi bi-credit-card"></i> Novo cartão</div>
+              <input class="form-control mb-2" id="cc-nome" placeholder="Ex.: Nubank, Inter Black" />
+              <input class="form-control mb-2" id="cc-bandeira" placeholder="Bandeira (Visa/Master/etc)" />
+              <div class="row g-2 mb-2">
+                <div class="col-6"><input type="number" class="form-control" id="cc-venc" min="1" max="31" placeholder="Dia vencimento" /></div>
+                <div class="col-6"><input type="number" class="form-control" id="cc-fech" min="1" max="31" placeholder="Dia fechamento" /></div>
+              </div>
+              <input class="form-control mb-2" id="cc-limite" placeholder="Limite (opcional) R$" />
+              <button class="btn btn-gold w-100" id="btn-cc-salvar">Salvar cartão</button>
+            </div>
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-list-ul"></i> Cartões cadastrados</div>
+              <div class="table-responsive">
+                <table class="table table-premium mb-0" id="tbl-cartoes">
+                  <thead><tr><th>Cartão</th><th>Venc.</th><th class="num">Limite</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-bag-check"></i> Registrar compra</div>
+              <div class="row g-2">
+                <div class="col-md-6"><select class="form-select" id="cc-comp-cartao"></select></div>
+                <div class="col-md-6"><input type="date" class="form-control" id="cc-comp-data" /></div>
+              </div>
+              <input class="form-control mt-2" id="cc-comp-desc" placeholder="Descrição da compra" />
+              <div class="row g-2 mt-1">
+                <div class="col-md-4"><input class="form-control" id="cc-comp-valor" placeholder="Valor total R$" /></div>
+                <div class="col-md-4"><input type="number" class="form-control" id="cc-comp-parc" min="1" value="1" placeholder="Parcelas" /></div>
+                <div class="col-md-4"><input class="form-control" id="cc-comp-fatura" placeholder="1ª fatura AAAA-MM" /></div>
+              </div>
+              <input class="form-control mt-2" id="cc-comp-obs" placeholder="Observação (opcional)" />
+              <button class="btn btn-gold w-100 mt-2" id="btn-cc-compra">Salvar compra</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-premium">
+          <div class="card-title"><i class="bi bi-receipt"></i> Compras e parcelas</div>
+          <div class="table-responsive">
+            <table class="table table-premium table-hover mb-0" id="tbl-cc-compras">
+              <thead>
+                <tr>
+                  <th>Cartão</th><th>Compra</th><th class="num">Total</th><th>Parcelas</th><th>Restam</th><th>Próx. fatura</th><th class="num">Parcela</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- DÍVIDAS -->
+      <section id="panel-dividas" class="panel">
+        <div class="page-header">
+          <h2>Dívidas</h2>
+          <p class="lead">Controle de parcelas e sugestão de quitação.</p>
+        </div>
+        <div class="card-premium mb-4 col-lg-8">
+          <div class="card-title"><i class="bi bi-plus-lg"></i> Nova dívida</div>
+          <div class="row g-2">
+            <div class="col-md-4"><input class="form-control" id="div-nome" placeholder="Nome" /></div>
+            <div class="col-md-3"><input class="form-control" id="div-total" placeholder="Total R$" /></div>
+            <div class="col-md-3"><input class="form-control" id="div-pago" placeholder="Pago R$" value="0" /></div>
+            <div class="col-md-2"><button class="btn btn-gold w-100" id="btn-div">Cadastrar</button></div>
+          </div>
+        </div>
+        <div class="card-premium mb-4">
+          <div class="table-responsive">
+            <table class="table table-premium mb-0" id="tbl-dividas">
+              <thead><tr><th>Nome</th><th class="num">Total</th><th class="num">Pago</th><th class="num">Restante</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-premium"><div class="card-title"><i class="bi bi-sort-down"></i> Ordem sugerida</div><pre class="small mb-0" id="out-div-sug"></pre></div>
+      </section>
+
+      <!-- CONFIGURAÇÕES -->
+      <section id="panel-config" class="panel">
+        <div class="page-header">
+          <h2>Configurações</h2>
+          <p class="lead">Regras de categoria, contas, tags, exportação e notificações.</p>
+        </div>
+        <div class="row g-4">
+          <div class="col-lg-6">
+            <div class="card-premium mb-4">
+              <div class="card-title"><i class="bi bi-funnel"></i> Regras de categorização</div>
+              <input class="form-control mb-2" id="regra-pad" placeholder="Texto no histórico" />
+              <select class="form-select mb-2" id="regra-cat"></select>
+              <button class="btn btn-gold btn-sm" id="btn-regra">Adicionar regra</button>
+              <ul class="list-unstyled mt-3 small" id="lista-regras"></ul>
+            </div>
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-bank"></i> Contas bancárias</div>
+              <input class="form-control mb-2" id="cb-nome" placeholder="Nome da conta" />
+              <button class="btn btn-gold btn-sm" id="btn-cb">Adicionar</button>
+              <ul class="list-unstyled mt-2 small" id="lista-cb"></ul>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card-premium mb-4">
+              <div class="card-title"><i class="bi bi-download"></i> Exportar movimentos</div>
+              <p class="small text-secondary">Usa o período do dashboard.</p>
+              <a class="btn btn-outline-light btn-sm" id="link-export" href="#" download="movimentos.csv">Baixar CSV</a>
+            </div>
+            <div class="card-premium mb-4">
+              <div class="card-title"><i class="bi bi-envelope"></i> E-mail para alertas</div>
+              <input class="form-control mb-2" id="notif-email" placeholder="seu@email.com" />
+              <button class="btn btn-gold btn-sm" id="btn-notif">Salvar</button>
+              <p class="small text-secondary mt-2 mb-0">Envio automático será integrado em versão futura.</p>
+            </div>
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-tag"></i> Tags</div>
+              <input class="form-control mb-2" id="tag-nome" placeholder="Nova tag" />
+              <button class="btn btn-gold btn-sm" id="btn-tag">Criar</button>
+              <p class="small mt-2 mb-0" id="lista-tags"></p>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -914,6 +1380,78 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
           <button type="button" class="btn btn-gold btn-sm" id="btn-salvar-edicao-fixa">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modal-mes-fixas" tabindex="-1" aria-labelledby="modal-mes-fixas-label" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content modal-premium">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-mes-fixas-label">
+            <i class="bi bi-calendar2-check me-2"></i>Contas fixas do mês
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="card-premium mb-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4 col-lg-3">
+                <label class="form-label" for="fx-mes-ctrl">Mês (AAAA-MM)</label>
+                <input class="form-control" id="fx-mes-ctrl" placeholder="2025-05" />
+              </div>
+              <div class="col-md-4 col-lg-2">
+                <button type="button" class="btn btn-gold w-100" id="btn-fx-mes-atualizar">
+                  <i class="bi bi-arrow-repeat me-1"></i> Atualizar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-4" id="fx-mes-metrics"></div>
+
+          <div class="row g-4 mb-4">
+            <div class="col-lg-5">
+              <div class="card-premium h-100">
+                <div class="card-title"><i class="bi bi-pie-chart"></i> Pagos x a pagar</div>
+                <div style="max-height:220px"><canvas id="ch-fx-mes-pizza"></canvas></div>
+              </div>
+            </div>
+            <div class="col-lg-7">
+              <div class="card-premium h-100">
+                <div class="card-title"><i class="bi bi-bar-chart"></i> Situação por conta</div>
+                <div style="max-height:220px"><canvas id="ch-fx-mes-barras"></canvas></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-premium">
+            <div class="card-title"><i class="bi bi-list-check"></i> Contas do mês</div>
+            <p class="small text-secondary mb-3">
+              Ajuste o valor real de cada conta (ex.: energia cadastrada em R$ 150, fatura de R$ 132,40) e marque quando pagar.
+            </p>
+            <div class="table-responsive">
+              <table class="table table-premium table-hover mb-0" id="tbl-fx-mes">
+                <thead>
+                  <tr>
+                    <th>Conta</th>
+                    <th>Venc.</th>
+                    <th class="num">Cadastro</th>
+                    <th class="num">Valor do mês</th>
+                    <th>Pago</th>
+                    <th>Situação</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="msg mt-3" id="fx-mes-msg"></p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Fechar</button>
         </div>
       </div>
     </div>
@@ -970,9 +1508,22 @@
     const API = "";
     let tipoLanc = "saida";
     let tipoEdicao = "saida";
-    let chartM = null, chartC = null, chartPlanej = null;
+    let chartM = null, chartC = null, chartInv = null;
+    let chartFxMesPizza = null, chartFxMesBarras = null;
+
+    function mesAtual() {
+      return new Date().toISOString().slice(0, 7);
+    }
+
+    function mesPlanej() {
+      const el = document.getElementById("pl-mes");
+      return (el && el.value) || mesAtual();
+    }
     let modalEditarLanc = null;
     let modalEditarFixa = null;
+    let modalMesFixas = null;
+    let filtroBanco = "";
+    let filtroImportacao = null;
 
     const CHART_COLORS = {
       text: "#94a3b8",
@@ -1028,13 +1579,148 @@
     }
 
     function periodoQuery() {
+      return filtrosQuery();
+    }
+
+    function filtrosQuery() {
       const de = document.getElementById("f-de").value;
       const ate = document.getElementById("f-ate").value;
       const q = new URLSearchParams();
       if (de) q.set("de", de);
       if (ate) q.set("ate", ate);
+      if (filtroImportacao != null) {
+        q.set("importacao_id", String(filtroImportacao));
+      } else if (filtroBanco) {
+        q.set("banco", filtroBanco);
+      }
+      const manuais = document.getElementById("f-manuais").checked;
+      q.set("incluir_manuais", manuais ? "1" : "0");
       const s = q.toString();
       return s ? "?" + s : "";
+    }
+
+    function atualizarBadgeFiltro() {
+      const badge = document.getElementById("filtro-ativo-label");
+      const txt = document.getElementById("filtro-ativo-texto");
+      if (!badge || !txt) return;
+      if (!filtroBanco && filtroImportacao == null) {
+        badge.style.display = "none";
+        return;
+      }
+      badge.style.display = "";
+      if (filtroImportacao != null) {
+        txt.textContent = filtroImportacao === 0
+          ? "Importação antiga"
+          : `Importação #${filtroImportacao}`;
+      } else {
+        txt.textContent = filtroBanco;
+      }
+    }
+
+    function aplicarFiltroBanco(banco, importacaoId) {
+      filtroBanco = banco || "";
+      filtroImportacao = importacaoId != null ? importacaoId : null;
+      const chk = document.getElementById("f-manuais");
+      if (filtroBanco || filtroImportacao != null) {
+        chk.checked = false;
+      } else {
+        chk.checked = true;
+      }
+      document.querySelectorAll("#filtro-bancos .filter-chip").forEach((btn) => {
+        const b = btn.dataset.banco ?? "";
+        const imp = btn.dataset.importacao;
+        const ativo = imp != null
+          ? filtroImportacao === Number(imp)
+          : filtroImportacao == null && filtroBanco === b;
+        btn.classList.toggle("active", ativo);
+      });
+      atualizarBadgeFiltro();
+    }
+
+    async function carregarFiltrosBanco() {
+      const wrap = document.getElementById("filtro-bancos");
+      if (!wrap) return;
+      let bancos = [];
+      try {
+        bancos = await api("/api/extratos/bancos");
+      } catch (_) {
+        bancos = [];
+      }
+      let html = `<button type="button" class="filter-chip${!filtroBanco && filtroImportacao == null ? " active" : ""}" data-banco="">
+        <i class="bi bi-layers"></i> Todos
+      </button>`;
+      for (const b of bancos) {
+        const legado = b.legado ? " data-importacao=\"0\"" : "";
+        const dataBanco = b.legado ? "" : ` data-banco="${b.banco}"`;
+        const icon = b.banco === "Nubank" ? "bi-credit-card-2-front"
+          : b.banco === "BRB" ? "bi-bank2"
+          : "bi-bank";
+        const ativo = b.legado
+          ? filtroImportacao === 0
+          : filtroBanco === b.banco && filtroImportacao == null;
+        html += `<button type="button" class="filter-chip${ativo ? " active" : ""}"${dataBanco}${legado}>
+          <i class="bi ${icon}"></i> ${b.banco}
+          <span class="chip-count">${b.movimentos}</span>
+        </button>`;
+      }
+      wrap.innerHTML = html;
+      wrap.querySelectorAll(".filter-chip").forEach((btn) => {
+        btn.onclick = () => {
+          const imp = btn.dataset.importacao;
+          if (imp != null) {
+            aplicarFiltroBanco("", Number(imp));
+          } else {
+            aplicarFiltroBanco(btn.dataset.banco || "", null);
+          }
+          refreshAll();
+        };
+      });
+      atualizarBadgeFiltro();
+    }
+
+    function aplicarAtalhoPeriodo(tipo) {
+      const hoje = new Date();
+      const y = hoje.getFullYear();
+      const m = hoje.getMonth();
+      const pad = (n) => String(n).padStart(2, "0");
+      const ultimoDia = (ano, mes) => new Date(ano, mes + 1, 0).getDate();
+      let de = "";
+      let ate = `${y}-${pad(m + 1)}-${pad(hoje.getDate())}`;
+      if (tipo === "mes") {
+        de = `${y}-${pad(m + 1)}-01`;
+      } else if (tipo === "mes-anterior") {
+        const pm = m === 0 ? 11 : m - 1;
+        const py = m === 0 ? y - 1 : y;
+        de = `${py}-${pad(pm + 1)}-01`;
+        ate = `${py}-${pad(pm + 1)}-${pad(ultimoDia(py, pm))}`;
+      } else if (tipo === "trimestre") {
+        const d3 = new Date(y, m - 2, 1);
+        de = `${d3.getFullYear()}-${pad(d3.getMonth() + 1)}-01`;
+      } else if (tipo === "ano") {
+        de = `${y}-01-01`;
+      } else if (tipo === "tudo") {
+        de = document.getElementById("f-de").dataset.min || de;
+        ate = document.getElementById("f-ate").dataset.max || ate;
+      }
+      if (de) document.getElementById("f-de").value = de;
+      if (ate) document.getElementById("f-ate").value = ate;
+      refreshAll();
+    }
+
+    let detectarBancoTimer = null;
+    async function detectarBancoExtrato() {
+      const texto = document.getElementById("txt-extrato").value;
+      const sel = document.getElementById("imp-banco");
+      if (!texto.trim() || sel.value) return;
+      try {
+        const res = await api("/api/extrato/detectar-banco", {
+          method: "POST",
+          body: JSON.stringify({ texto }),
+        });
+        if (res.banco && [...sel.options].some((o) => o.value === res.banco)) {
+          sel.value = res.banco;
+        }
+      } catch (_) { /* ignore */ }
     }
 
     function setTipo(t) {
@@ -1084,6 +1770,8 @@
       document.getElementById("ed-cat").innerHTML = opts;
       document.getElementById("fx-cat").innerHTML = opts;
       document.getElementById("ed-fx-cat").innerHTML = opts;
+      document.getElementById("orc-cat").innerHTML = opts;
+      document.getElementById("regra-cat").innerHTML = opts;
     }
 
     function abrirEditarContaFixa(row) {
@@ -1107,110 +1795,42 @@
       const p = await api("/api/periodo");
       const hoje = new Date().toISOString().slice(0, 10);
       const ini = p.de || hoje.slice(0, 8) + "01";
-      document.getElementById("f-de").value = ini;
-      document.getElementById("f-ate").value = p.ate || hoje;
+      const elDe = document.getElementById("f-de");
+      const elAte = document.getElementById("f-ate");
+      elDe.value = ini;
+      elAte.value = p.ate || hoje;
+      if (p.de) elDe.dataset.min = p.de;
+      if (p.ate) elAte.dataset.max = p.ate;
       document.getElementById("l-data").value = hoje;
     }
 
-    function renderDashboardPlanejamento(p) {
-      const empty = document.getElementById("dash-plan-empty");
-      const content = document.getElementById("dash-plan-content");
-      const semDados = p.salario_mensal == null && (!p.contas || !p.contas.length);
-      if (semDados) {
-        empty.style.display = "";
-        content.style.display = "none";
-        empty.textContent = p.qtd_contas_ativas
-          ? "Cadastre seu salário fixo mensal em Contas fixas para ver o planejamento."
-          : "Cadastre salário e contas fixas para ver quanto sobra ou falta no mês.";
-        if (chartPlanej) { chartPlanej.destroy(); chartPlanej = null; }
-        return;
-      }
-      empty.style.display = "none";
-      content.style.display = "";
+    function atualizarKpisFixas(p) {
+      const row = document.getElementById("metrics-fixas");
+      const tem = p.salario_mensal != null || p.total_contas_fixas > 0;
+      row.style.display = tem ? "" : "none";
+      if (!tem) return;
       const f = p.fmt || {};
-      document.getElementById("dash-pl-salario").textContent =
+      document.getElementById("k-sal-fix").textContent =
         p.salario_mensal != null ? (f.salario_mensal || fmtBr(p.salario_mensal)) : "—";
-      document.getElementById("dash-pl-fixas").textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
-      const cardRes = document.getElementById("dash-pl-card-resultado");
-      const lblRes = document.getElementById("dash-pl-lbl-resultado");
-      const elRes = document.getElementById("dash-pl-resultado");
-      const status = document.getElementById("dash-pl-status");
-      const bar = document.getElementById("dash-pl-bar");
+      document.getElementById("k-cx-fix").textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
+      const cardSobra = document.getElementById("k-card-sobra-fix");
+      const lblSobra = document.getElementById("k-lbl-sobra-fix");
+      const elSobra = document.getElementById("k-sobra-fix");
       if (p.salario_mensal == null) {
-        lblRes.textContent = "Contas fixas/mês";
-        elRes.textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
-        cardRes.className = "metric-card";
-        status.textContent = `${p.qtd_contas_ativas} conta(s) fixa(s) cadastrada(s). Informe o salário para calcular a sobra.`;
-        status.className = "planej-status";
-        bar.style.width = "0%";
+        lblSobra.textContent = "Cadastre salário";
+        elSobra.textContent = "—";
+        cardSobra.className = "metric-card";
       } else if (p.falta != null && p.falta > 0) {
-        lblRes.textContent = "Falta no mês";
-        elRes.textContent = f.falta || fmtBr(p.falta);
-        cardRes.className = "metric-card danger";
-        status.textContent = `Déficit: contas fixas excedem o salário em ${f.falta || fmtBr(p.falta)}.`;
-        status.className = "planej-status danger";
+        lblSobra.textContent = "Falta no mês";
+        elSobra.textContent = f.falta || fmtBr(p.falta);
+        cardSobra.className = "metric-card danger";
       } else {
-        lblRes.textContent = "Sobra estimada";
-        elRes.textContent = f.sobra || fmtBr(p.sobra);
-        cardRes.className = "metric-card ok";
-        status.textContent = `Após contas fixas, sobram ${f.sobra || fmtBr(p.sobra)} para gastos variáveis e reserva.`;
-        status.className = "planej-status ok";
+        lblSobra.textContent = "Sobra estimada";
+        elSobra.textContent = f.sobra || fmtBr(p.sobra);
+        cardSobra.className = "metric-card ok";
       }
-      const pct = p.pct_comprometido != null ? p.pct_comprometido : null;
-      document.getElementById("dash-pl-pct").textContent = pct != null ? pct.toFixed(1) + "%" : "—";
-      if (pct != null) {
-        const pctBar = Math.min(pct, 100);
-        bar.style.width = pctBar + "%";
-        bar.className = "planej-bar-fill " + (pct > 100 ? "danger" : pct > 85 ? "warn" : "ok");
-      } else {
-        bar.style.width = "0%";
-      }
-      const sal = p.salario_mensal || 0;
-      const contas = p.contas || [];
-      const tb = document.querySelector("#tbl-dash-fixas tbody");
-      tb.innerHTML = contas.map((c) => {
-        const pctC = sal > 0 ? (c.valor / sal * 100) : null;
-        return `<tr>
-          <td><strong>${c.nome}</strong><br><span class="text-secondary small">${c.categoria}</span></td>
-          <td class="num sai">${fmtBr(c.valor)}</td>
-          <td class="num">${pctC != null ? pctC.toFixed(1) + "%" : "—"}</td>
-          <td>${c.dia_vencimento || "—"}</td>
-        </tr>`;
-      }).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhuma conta fixa ativa</td></tr>";
-      document.getElementById("dash-fixas-total").textContent = f.total_contas_fixas || fmtBr(p.total_contas_fixas);
-      document.getElementById("dash-fixas-pct-total").textContent = pct != null ? pct.toFixed(1) + "%" : "—";
-      if (chartPlanej) chartPlanej.destroy();
-      chartPlanej = null;
-      if (p.salario_mensal != null && p.total_contas_fixas > 0) {
-        const deficit = p.falta != null && p.falta > 0;
-        chartPlanej = new Chart(document.getElementById("ch-planej"), {
-          type: "doughnut",
-          data: {
-            labels: deficit
-              ? ["Salário", "Excesso (falta)"]
-              : ["Contas fixas", "Sobra / disponível"],
-            datasets: [{
-              data: deficit
-                ? [p.salario_mensal, p.falta]
-                : [p.total_contas_fixas, Math.max(p.sobra || 0, 0)],
-              backgroundColor: deficit
-                ? [CHART_COLORS.gold, CHART_COLORS.rose]
-                : [CHART_COLORS.rose, CHART_COLORS.emerald],
-              borderWidth: 0,
-            }],
-          },
-          options: {
-            plugins: {
-              legend: { position: "bottom", labels: { color: CHART_COLORS.text, boxWidth: 12 } },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ctx.label + ": " + fmtBr(ctx.raw),
-                },
-              },
-            },
-          },
-        });
-      }
+      document.getElementById("k-pct-sal-fix").textContent =
+        p.pct_comprometido != null ? p.pct_comprometido.toFixed(1) + "%" : "—";
     }
 
     async function refreshDashboard() {
@@ -1221,7 +1841,7 @@
         api("/api/resumo/categorias" + pq),
         api("/api/contas-fixas/planejamento"),
       ]);
-      renderDashboardPlanejamento(planej);
+      atualizarKpisFixas(planej);
       const f = ind.fmt || {};
       document.getElementById("k-ent").textContent = f.entradas || "—";
       document.getElementById("k-sai").textContent = f.saidas || "—";
@@ -1231,6 +1851,14 @@
       document.getElementById("k-var").textContent = f.gastos_variaveis || "—";
       document.getElementById("k-pctf").textContent = ind.pct_fixas != null ? ind.pct_fixas.toFixed(1) + "%" : "—";
       document.getElementById("k-ticket").textContent = ind.ticket_medio_debito ? fmtBr(ind.ticket_medio_debito) : "—";
+
+      const alertas = await api("/api/alertas?mes=" + mesAtual());
+      const alEl = document.getElementById("alertas-dash");
+      if (alEl) {
+        alEl.innerHTML = alertas.slice(0, 4).map((a) =>
+          `<div class="msg ${a.nivel === "danger" ? "err" : a.nivel === "warn" ? "" : "ok"} small py-2 px-3 mb-1">${a.texto}</div>`
+        ).join("") || "";
+      }
 
       const tb = document.querySelector("#tbl-cat tbody");
       tb.innerHTML = cats.map((r) =>
@@ -1325,7 +1953,7 @@
       const tb = document.querySelector("#tbl-extratos tbody");
       const msg = document.getElementById("extratos-msg");
       if (!rows.length) {
-        tb.innerHTML = "<tr><td colspan='7' class='text-secondary'>Nenhum extrato importado ainda</td></tr>";
+        tb.innerHTML = "<tr><td colspan='8' class='text-secondary'>Nenhum extrato importado ainda</td></tr>";
         if (msg) msg.textContent = "";
         return;
       }
@@ -1336,16 +1964,36 @@
         const periodo = r.data_min && r.data_max
           ? `${r.data_min} → ${r.data_max}`
           : "—";
+        const banco = r.banco || "—";
+        const verDash = `<button type="button" class="link" data-ver-ext="${r.id}" data-ver-banco="${encodeURIComponent(r.banco || "")}">
+            <i class="bi bi-funnel"></i> ver</button>`;
         return `<tr>
           <td><strong>${titulo}</strong></td>
+          <td>${banco}</td>
           <td>${periodo}</td>
           <td class="num">${r.qtd_lidas}</td>
           <td class="num">${r.qtd_inseridas}</td>
           <td class="num">${r.qtd_duplicadas}</td>
           <td class="num">${r.qtd_movimentos}</td>
-          <td><button class="link" data-del-ext="${r.id}"><i class="bi bi-trash"></i> excluir</button></td>
+          <td class="acoes-cell">${verDash}
+            <button class="link" data-del-ext="${r.id}"><i class="bi bi-trash"></i> excluir</button></td>
         </tr>`;
       }).join("");
+      tb.querySelectorAll("[data-ver-ext]").forEach((btn) => {
+        btn.onclick = () => {
+          const id = Number(btn.dataset.verExt);
+          const banco = decodeURIComponent(btn.dataset.verBanco || "");
+          if (id === 0) {
+            aplicarFiltroBanco("", 0);
+          } else if (banco && banco !== "—") {
+            aplicarFiltroBanco(banco, null);
+          } else {
+            aplicarFiltroBanco("", id);
+          }
+          document.querySelector('[data-tab="inicio"]').click();
+          refreshAll();
+        };
+      });
       if (msg) msg.textContent = "";
       tb.querySelectorAll("[data-del-ext]").forEach((btn) => {
         btn.onclick = async () => {
@@ -1437,6 +2085,452 @@
       });
     }
 
+    function mesControleFixas() {
+      const el = document.getElementById("fx-mes-ctrl");
+      return (el && el.value.trim()) || mesAtual();
+    }
+
+    function pillStatusFxMes(status) {
+      if (status === "pago") return '<span class="pill-manual" style="background:rgba(52,211,153,.15);color:#34d399">Pago</span>';
+      if (status === "vencido") return '<span class="pill-manual" style="background:rgba(248,113,113,.15);color:#f87171">Vencido</span>';
+      return '<span class="pill-manual" style="background:rgba(212,175,55,.15);color:#d4af37">A pagar</span>';
+    }
+
+    function renderFxMesCharts(data) {
+      const r = data.resumo;
+      const pizzaCtx = document.getElementById("ch-fx-mes-pizza");
+      const barCtx = document.getElementById("ch-fx-mes-barras");
+      if (chartFxMesPizza) chartFxMesPizza.destroy();
+      if (chartFxMesBarras) chartFxMesBarras.destroy();
+
+      chartFxMesPizza = new Chart(pizzaCtx, {
+        type: "doughnut",
+        data: {
+          labels: ["Pagos", "A pagar", "Vencidos"],
+          datasets: [{
+            data: [r.total_pago, Math.max(r.total_a_pagar - r.total_vencido, 0), r.total_vencido],
+            backgroundColor: [CHART_COLORS.emerald, CHART_COLORS.gold, CHART_COLORS.rose],
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { color: CHART_COLORS.text, font: { family: "'Plus Jakarta Sans'" }, boxWidth: 12 },
+            },
+          },
+        },
+      });
+
+      const labels = data.itens.map((i) => i.nome);
+      const pagos = data.itens.map((i) => (i.status === "pago" ? i.valor_real : 0));
+      const aPagar = data.itens.map((i) => (i.status === "a_pagar" ? i.valor_real : 0));
+      const vencidos = data.itens.map((i) => (i.status === "vencido" ? i.valor_real : 0));
+      chartFxMesBarras = new Chart(barCtx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            { label: "Pago", data: pagos, backgroundColor: CHART_COLORS.emerald, borderRadius: 4 },
+            { label: "A pagar", data: aPagar, backgroundColor: CHART_COLORS.gold, borderRadius: 4 },
+            { label: "Vencido", data: vencidos, backgroundColor: CHART_COLORS.rose, borderRadius: 4 },
+          ],
+        },
+        options: {
+          ...chartDefaults(),
+          maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true, ticks: { color: CHART_COLORS.text, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+            y: { stacked: true, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } },
+          },
+          plugins: {
+            legend: {
+              labels: { color: CHART_COLORS.text, font: { family: "'Plus Jakarta Sans'" }, boxWidth: 12 },
+            },
+          },
+        },
+      });
+    }
+
+    function renderFxMesMetrics(data) {
+      const r = data.resumo;
+      const f = r.fmt || {};
+      document.getElementById("fx-mes-metrics").innerHTML = `
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="metric-card accent"><div class="metric-label">Total do mês</div><strong>${f.total_real || fmtBr(r.total_real)}</strong></div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="metric-card ok"><div class="metric-label">Pagos</div><strong>${f.total_pago || fmtBr(r.total_pago)}</strong><div class="small text-secondary">${r.qtd_pagas}/${r.qtd_contas}</div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="metric-card"><div class="metric-label">A pagar</div><strong>${fmtBr(r.total_a_pagar - r.total_vencido)}</strong><div class="small text-secondary">${r.qtd_a_pagar} conta(s)</div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="metric-card danger"><div class="metric-label">Vencidos</div><strong>${f.total_vencido || fmtBr(r.total_vencido)}</strong><div class="small text-secondary">${r.qtd_vencidas} conta(s)</div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="metric-card"><div class="metric-label">Pendentes</div><strong>${r.qtd_pendentes}</strong><div class="small text-secondary">não pagas</div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="metric-card accent"><div class="metric-label">Progresso</div><strong>${Number(r.pct_pago).toFixed(1)}%</strong></div>
+        </div>`;
+    }
+
+    async function salvarContaFixaMes(contaId, mes) {
+      const msg = document.getElementById("fx-mes-msg");
+      msg.className = "msg";
+      const row = document.querySelector(`tr[data-fx-mes-id="${contaId}"]`);
+      if (!row) return;
+      const valor = row.querySelector(".fx-mes-valor").value;
+      const pago = row.querySelector(".fx-mes-pago").checked;
+      try {
+        const data = await api("/api/contas-fixas/mes/" + contaId, {
+          method: "PUT",
+          body: JSON.stringify({ mes, valor, pago }),
+        });
+        msg.textContent = "Conta atualizada.";
+        msg.className = "msg ok";
+        const payload = data.mes;
+        renderFxMesMetrics(payload);
+        renderFxMesCharts(payload);
+        const item = payload.itens.find((i) => i.conta_fixa_id === contaId);
+        if (item) {
+          row.querySelector(".fx-mes-status").innerHTML = pillStatusFxMes(item.status);
+        }
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    }
+
+    async function carregarContasFixasMes() {
+      const mes = mesControleFixas();
+      const msg = document.getElementById("fx-mes-msg");
+      if (msg) {
+        msg.textContent = "";
+        msg.className = "msg";
+      }
+      const data = await api("/api/contas-fixas/mes?mes=" + encodeURIComponent(mes));
+      renderFxMesMetrics(data);
+      renderFxMesCharts(data);
+      const tb = document.querySelector("#tbl-fx-mes tbody");
+      tb.innerHTML = data.itens.map((i) =>
+        `<tr data-fx-mes-id="${i.conta_fixa_id}">
+          <td><strong>${i.nome}</strong><div class="small text-secondary">${i.categoria || ""}</div></td>
+          <td>Dia ${i.dia}</td>
+          <td class="num">${fmtBr(i.valor_cadastro)}</td>
+          <td class="num" style="min-width:8rem">
+            <input class="form-control form-control-sm fx-mes-valor" value="${fmtBr(i.valor_real)}" inputmode="decimal" />
+          </td>
+          <td><input type="checkbox" class="form-check-input fx-mes-pago" ${i.pago ? "checked" : ""} /></td>
+          <td class="fx-mes-status">${pillStatusFxMes(i.status)}</td>
+          <td><button type="button" class="btn btn-gold btn-sm btn-fx-mes-salvar" data-fx-save="${i.conta_fixa_id}">Salvar</button></td>
+        </tr>`
+      ).join("") || "<tr><td colspan='7' class='text-secondary'>Nenhuma conta fixa ativa cadastrada</td></tr>";
+
+      tb.querySelectorAll(".btn-fx-mes-salvar").forEach((btn) => {
+        btn.onclick = () => salvarContaFixaMes(Number(btn.dataset.fxSave), mesControleFixas());
+      });
+      tb.querySelectorAll(".fx-mes-pago").forEach((chk) => {
+        chk.onchange = () => {
+          const row = chk.closest("tr");
+          const id = Number(row.dataset.fxMesId);
+          salvarContaFixaMes(id, mesControleFixas());
+        };
+      });
+    }
+
+    function abrirControleMesFixas() {
+      const inp = document.getElementById("fx-mes-ctrl");
+      if (inp && !inp.value) inp.value = mesAtual();
+      if (!modalMesFixas) {
+        modalMesFixas = new bootstrap.Modal(document.getElementById("modal-mes-fixas"));
+      }
+      modalMesFixas.show();
+      carregarContasFixasMes().catch((e) => {
+        const msg = document.getElementById("fx-mes-msg");
+        if (msg) {
+          msg.textContent = "Erro: " + e.message;
+          msg.className = "msg err";
+        }
+      });
+    }
+
+    async function carregarPlanejamento() {
+      const mes = mesPlanej();
+      const [cal, orc, regra] = await Promise.all([
+        api("/api/calendario?mes=" + mes),
+        api("/api/orcamento?mes=" + mes),
+        api("/api/regra-503020"),
+      ]);
+      document.getElementById("r50-n").value = regra.necessidades;
+      document.getElementById("r50-d").value = regra.desejos;
+      document.getElementById("r50-p").value = regra.poupanca;
+      document.getElementById("pl-cal-metrics").innerHTML = `
+        <div class="col-md-4"><div class="metric-card danger"><div class="metric-label">Total vencimentos</div><strong>${fmtBr(cal.total_mes)}</strong></div></div>
+        <div class="col-md-4"><div class="metric-card"><div class="metric-label">Até dia 15</div><strong>${fmtBr(cal.vence_ate_dia_15)}</strong></div></div>
+        <div class="col-md-4"><div class="metric-card accent"><div class="metric-label">Saldo extrato</div><strong>${cal.saldo_extrato != null ? fmtBr(cal.saldo_extrato) : "—"}</strong></div></div>`;
+      document.querySelector("#tbl-calendario tbody").innerHTML = cal.itens.map((i) =>
+        `<tr><td>${i.dia}</td><td>${i.nome}</td><td class="num">${fmtBr(i.valor)}</td></tr>`
+      ).join("") || "<tr><td colspan='3' class='text-secondary'>Sem vencimentos cadastrados</td></tr>";
+      document.querySelector("#tbl-orcamento tbody").innerHTML = orc.map((o) =>
+        `<tr><td>${o.categoria}</td><td class="num">${fmtBr(o.limite)}</td><td class="num">${fmtBr(o.gasto)}</td>
+        <td>${o.pct.toFixed(0)}%</td><td><span class="pill-manual">${o.alerta}</span></td></tr>`
+      ).join("") || "<tr><td colspan='5' class='text-secondary'>Defina limites acima</td></tr>";
+      try {
+        const a5030 = await api("/api/analise-503020?mes=" + mes);
+        document.getElementById("out-503020").textContent = JSON.stringify(a5030, null, 2);
+      } catch {
+        document.getElementById("out-503020").textContent = "Cadastre o salário em Contas fixas.";
+      }
+      const comp = await api("/api/comparativo?mes=" + mes);
+      document.getElementById("out-comparativo").textContent =
+        `${comp.mes_atual}: entradas ${fmtBr(comp.atual.entradas)} · saídas ${fmtBr(comp.atual.saidas)}\n` +
+        `${comp.mes_anterior}: entradas ${fmtBr(comp.anterior.entradas)} · saídas ${fmtBr(comp.anterior.saidas)}\n` +
+        `Variação líquida: ${fmtBr(comp.variacao.liquido)}`;
+    }
+
+    async function carregarReserva() {
+      const res = await api("/api/reserva");
+      document.getElementById("res-mult").value = res.multiplicador_meses;
+      const origemHint = res.saldo_origem === "calculado"
+        ? '<div class="col-12"><p class="small text-secondary mb-2">Saldo calculado (entradas − saídas) — extrato sem coluna saldo.</p></div>'
+        : res.saldo_origem === "extrato"
+          ? '<div class="col-12"><p class="small text-secondary mb-2">Saldo lido da coluna saldo do extrato.</p></div>'
+          : "";
+      document.getElementById("res-metrics").innerHTML = origemHint + `
+        <div class="col-6 col-md-3"><div class="metric-card accent"><div class="metric-label">Meta (N × fixas)</div><strong>${fmtBr(res.meta_reserva)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card ok"><div class="metric-label">Saldo disponível</div><strong>${fmtBr(res.saldo_atual)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">% atingido</div><strong>${res.pct_atingido.toFixed(1)}%</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card danger"><div class="metric-label">Falta juntar</div><strong>${fmtBr(res.falta)}</strong></div></div>`;
+      const barWrap = document.getElementById("reserva-bar-wrap");
+      const barFill = document.getElementById("reserva-bar-fill");
+      const status = document.getElementById("reserva-status");
+      barWrap.style.display = res.meta_reserva > 0 ? "" : "none";
+      if (res.meta_reserva > 0) {
+        const pct = Math.min(res.pct_atingido, 100);
+        barFill.style.width = pct + "%";
+        barFill.className = "planej-bar-fill " + (pct >= 100 ? "ok" : pct >= 50 ? "warn" : "danger");
+        if (pct >= 100) {
+          status.textContent = "Parabéns! Você atingiu a meta da reserva de emergência.";
+          status.className = "planej-status ok";
+        } else {
+          status.textContent = `Faltam ${fmtBr(res.falta)} para completar a reserva.`;
+          status.className = "planej-status " + (pct >= 50 ? "ok" : "danger");
+        }
+      }
+    }
+
+    async function carregarMetas() {
+      const metas = await api("/api/metas");
+      document.querySelector("#tbl-metas tbody").innerHTML = metas.map((m) => {
+        const pct = m.pct != null ? m.pct.toFixed(0) : "0";
+        const falta = m.falta != null ? fmtBr(m.falta) : "—";
+        return `<tr>
+          <td><strong>${m.nome}</strong><br><span class="small text-secondary">Falta ${falta}</span></td>
+          <td class="num">${fmtBr(m.valor_atual)} / ${m.valor_alvo != null ? fmtBr(m.valor_alvo) : "—"}<br>
+            <span class="pill-manual">${pct}%</span></td>
+          <td>
+            <div class="input-group input-group-sm">
+              <input class="form-control ap-meta-input" data-meta-id="${m.id}" placeholder="500,00" inputmode="decimal" />
+              <button class="btn btn-gold btn-sm btn-ap-meta" type="button" data-meta-id="${m.id}" title="Somar ao acumulado">+</button>
+            </div>
+          </td>
+          <td><button class="link" data-del-meta="${m.id}"><i class="bi bi-trash"></i></button></td>
+        </tr>`;
+      }).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhuma meta — crie acima</td></tr>";
+      document.querySelectorAll("[data-del-meta]").forEach((b) => {
+        b.onclick = async () => { await api("/api/metas/" + b.dataset.delMeta, { method: "DELETE" }); await carregarMetas(); };
+      });
+      const projs = await api("/api/projetos");
+      document.querySelector("#tbl-projetos tbody").innerHTML = projs.map((p) =>
+        `<tr>
+          <td><strong>${p.nome}</strong><br><span class="small text-secondary">Falta ${fmtBr(p.falta)}</span></td>
+          <td class="num">${fmtBr(p.valor_acumulado)} / ${fmtBr(p.valor_alvo)}<br><span class="pill-manual">${p.pct.toFixed(0)}%</span></td>
+          <td>
+            <div class="input-group input-group-sm">
+              <input class="form-control ap-proj-input" data-proj-id="${p.id}" placeholder="300,00" inputmode="decimal" />
+              <button class="btn btn-gold btn-sm btn-ap-proj" type="button" data-proj-id="${p.id}">+</button>
+            </div>
+          </td>
+          <td><button class="link" data-del-proj="${p.id}"><i class="bi bi-trash"></i></button></td>
+        </tr>`
+      ).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhum projeto</td></tr>";
+      document.querySelectorAll("[data-del-proj]").forEach((b) => {
+        b.onclick = async () => { await api("/api/projetos/" + b.dataset.delProj, { method: "DELETE" }); await carregarMetas(); };
+      });
+    }
+
+    async function registrarAporteMeta(metaId, valor) {
+      const msg = document.getElementById("meta-msg");
+      msg.className = "msg";
+      try {
+        await api("/api/metas/" + metaId + "/aporte", {
+          method: "POST",
+          body: JSON.stringify({ valor }),
+        });
+        msg.textContent = "Aporte registrado.";
+        msg.className = "msg ok";
+        await carregarMetas();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    }
+
+    async function registrarAporteProj(projId, valor) {
+      const msg = document.getElementById("meta-msg");
+      msg.className = "msg";
+      try {
+        await api("/api/projetos/" + projId + "/aporte", {
+          method: "POST",
+          body: JSON.stringify({ valor }),
+        });
+        msg.textContent = "Aporte registrado.";
+        msg.className = "msg ok";
+        await carregarMetas();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    }
+
+    async function carregarInvestimentos() {
+      const res = await api("/api/investimentos/resumo");
+      const msg = document.getElementById("inv-msg");
+      document.getElementById("inv-metrics").innerHTML = `
+        <div class="col-6 col-md-3"><div class="metric-card accent"><div class="metric-label">Patrimônio</div><strong>${fmtBr(res.patrimonio_total)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card ok"><div class="metric-label">Aportes mês</div><strong>${fmtBr(res.aportes_mes)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Rendimentos mês</div><strong>${fmtBr(res.rendimentos_mes)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Ativos</div><strong>${res.qtd_ativos}</strong></div></div>`;
+      const tipos = res.tipos || [];
+      const selTipo = document.getElementById("inv-tipo");
+      const selAloc = document.getElementById("inv-aloc-tipo");
+      if (!selTipo.options.length) selTipo.innerHTML = tipos.map((t) => `<option value="${t}">${t}</option>`).join("");
+      if (!selAloc.options.length) selAloc.innerHTML = tipos.map((t) => `<option value="${t}">${t}</option>`).join("");
+      const ativos = await api("/api/investimentos/ativos");
+      document.querySelector("#tbl-invest tbody").innerHTML = ativos.map((a) =>
+        `<tr><td><strong>${a.nome}</strong></td><td>${a.tipo}</td><td>${a.instituicao || "—"}</td><td class="num">${fmtBr(a.valor_atual)}</td></tr>`
+      ).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhum ativo cadastrado ainda.</td></tr>";
+      const opts = ativos.map((a) => `<option value="${a.id}">${a.nome}</option>`).join("");
+      document.getElementById("inv-mov-ativo").innerHTML = opts || "<option value=''>Cadastre um ativo</option>";
+      const tot = Number(res.patrimonio_total) || 0;
+      const aloc = (res.alocacao_meta || []).map((row) => {
+        const atualValor = Number(res.por_tipo?.[row.tipo_ativo] || 0);
+        const atualPct = tot > 0 ? (atualValor / tot) * 100 : 0;
+        return `<div>${row.tipo_ativo}: meta ${Number(row.percentual).toFixed(0)}% · atual ${atualPct.toFixed(1)}%</div>`;
+      }).join("");
+      document.getElementById("inv-aloc-list").innerHTML = aloc || "Sem metas de alocação.";
+      const labels = Object.keys(res.por_tipo);
+      const data = labels.map((k) => res.por_tipo[k]);
+      if (chartInv) chartInv.destroy();
+      if (labels.length) {
+        chartInv = new Chart(document.getElementById("ch-invest"), {
+          type: "doughnut",
+          data: { labels, datasets: [{ data, backgroundColor: CHART_COLORS.palette, borderWidth: 0 }] },
+          options: { plugins: { legend: { position: "right", labels: { color: CHART_COLORS.text } } } },
+        });
+      }
+      if (msg && !msg.textContent) {
+        msg.textContent = ativos.length ? "Carteira atualizada." : "Comece cadastrando seu primeiro ativo.";
+        msg.className = "msg";
+      }
+    }
+
+    async function carregarCartaoCredito() {
+      const [resumo, cartoes, compras] = await Promise.all([
+        api("/api/cartoes/resumo"),
+        api("/api/cartoes"),
+        api("/api/cartoes/compras"),
+      ]);
+
+      document.getElementById("cc-metrics").innerHTML = `
+        <div class="col-6 col-md-3"><div class="metric-card accent"><div class="metric-label">Fatura do mês</div><strong>${fmtBr(resumo.fatura_mes)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card danger"><div class="metric-label">Total em aberto</div><strong>${fmtBr(resumo.total_em_aberto)}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Cartões</div><strong>${resumo.qtd_cartoes}</strong></div></div>
+        <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Compras parceladas</div><strong>${resumo.qtd_compras}</strong></div></div>
+      `;
+
+      const alertas = resumo.alertas_vencimento || [];
+      if (alertas.length) {
+        const texto = alertas.map((a) =>
+          `${a.cartao} vence em ${a.dias_para_vencer} dia(s) (${a.vencimento})`
+        ).join(" · ");
+        const msg = document.getElementById("cc-msg");
+        msg.textContent = texto;
+        msg.className = "msg err";
+      }
+
+      document.querySelector("#tbl-cartoes tbody").innerHTML = cartoes.map((c) =>
+        `<tr>
+          <td><strong>${c.nome}</strong><br><span class="small text-secondary">${c.bandeira || "—"}</span></td>
+          <td>dia ${c.dia_vencimento}</td>
+          <td class="num">${c.limite != null ? fmtBr(c.limite) : "—"}</td>
+          <td><button class="link" data-del-cc="${c.id}"><i class="bi bi-trash"></i></button></td>
+        </tr>`
+      ).join("") || "<tr><td colspan='4' class='text-secondary'>Nenhum cartão cadastrado.</td></tr>";
+      document.querySelectorAll("[data-del-cc]").forEach((b) => {
+        b.onclick = async () => {
+          await api("/api/cartoes/" + b.dataset.delCc, { method: "DELETE" });
+          await carregarCartaoCredito();
+        };
+      });
+
+      const sel = document.getElementById("cc-comp-cartao");
+      sel.innerHTML = cartoes.map((c) => `<option value="${c.id}">${c.nome}</option>`).join("") ||
+        "<option value=''>Cadastre um cartão</option>";
+
+      document.querySelector("#tbl-cc-compras tbody").innerHTML = compras.map((c) =>
+        `<tr>
+          <td>${c.cartao_nome}</td>
+          <td><strong>${c.descricao}</strong><br><span class="small text-secondary">${c.data_compra}</span></td>
+          <td class="num">${fmtBr(c.valor_total)}</td>
+          <td>${c.parcelas_pagas}/${c.parcelas}</td>
+          <td>${c.parcelas_restantes}</td>
+          <td>${c.proxima_fatura || "quitada"}</td>
+          <td class="num">${fmtBr(c.parcela_valor)}</td>
+        </tr>`
+      ).join("") || "<tr><td colspan='7' class='text-secondary'>Nenhuma compra registrada.</td></tr>";
+    }
+
+    async function carregarDividas() {
+      const rows = await api("/api/dividas");
+      document.querySelector("#tbl-dividas tbody").innerHTML = rows.map((d) =>
+        `<tr><td>${d.nome}</td><td class="num">${fmtBr(d.valor_total)}</td><td class="num">${fmtBr(d.valor_pago)}</td>
+        <td class="num">${fmtBr(d.restante)}</td><td><button class="link" data-del-div="${d.id}"><i class="bi bi-trash"></i></button></td></tr>`
+      ).join("") || "<tr><td colspan='5' class='text-secondary'>Nenhuma dívida</td></tr>";
+      document.querySelectorAll("[data-del-div]").forEach((b) => {
+        b.onclick = async () => { await api("/api/dividas/" + b.dataset.delDiv, { method: "DELETE" }); await carregarDividas(); };
+      });
+      const sug = await api("/api/dividas/sugestao");
+      document.getElementById("out-div-sug").textContent = sug.map((s) =>
+        `${s.metodo}: ${s.ordem.join(" → ") || "—"}`
+      ).join("\n");
+    }
+
+    async function carregarConfig() {
+      const [regras, cbs, tags, notif] = await Promise.all([
+        api("/api/regras-categoria"),
+        api("/api/contas-bancarias"),
+        api("/api/tags"),
+        api("/api/notificacoes"),
+      ]);
+      document.getElementById("lista-regras").innerHTML = regras.map((r) =>
+        `<li class="mb-1">${r.padrao} → ${r.categoria} <button class="link" data-del-regra="${r.id}">×</button></li>`
+      ).join("");
+      document.querySelectorAll("[data-del-regra]").forEach((b) => {
+        b.onclick = async () => { await api("/api/regras-categoria/" + b.dataset.delRegra, { method: "DELETE" }); await carregarConfig(); };
+      });
+      document.getElementById("lista-cb").innerHTML = cbs.map((c) => `<li>${c.nome} (${c.tipo})</li>`).join("");
+      document.getElementById("lista-tags").textContent = tags.map((t) => t.nome).join(", ") || "Nenhuma tag";
+      document.getElementById("notif-email").value = notif.email || "";
+      const pq = periodoQuery();
+      document.getElementById("link-export").href = "/api/export/movimentos" + pq;
+    }
+
     async function refreshAll() {
       await Promise.all([
         refreshDashboard(),
@@ -1444,7 +2538,11 @@
         carregarMovimentos(),
         carregarExtratos(),
         carregarFixas(),
+        carregarFiltrosBanco(),
       ]);
+      const pq = filtrosQuery();
+      const linkExp = document.getElementById("link-export");
+      if (linkExp) linkExp.href = "/api/export/movimentos" + pq;
     }
 
     document.getElementById("btn-entrada").onclick = () => setTipo("entrada");
@@ -1452,9 +2550,20 @@
     document.getElementById("ed-btn-entrada").onclick = () => setTipoEdicao("entrada");
     document.getElementById("ed-btn-saida").onclick = () => setTipoEdicao("saida");
     document.getElementById("btn-atualizar").onclick = refreshAll;
-    document.getElementById("btn-ir-fixas").onclick = () => {
-      document.querySelector('[data-tab="fixas"]').click();
-    };
+
+    document.getElementById("f-manuais").onchange = refreshAll;
+
+    document.querySelectorAll("#quick-period [data-qperiod]").forEach((btn) => {
+      btn.onclick = () => aplicarAtalhoPeriodo(btn.dataset.qperiod);
+    });
+
+    document.getElementById("txt-extrato").addEventListener("input", () => {
+      clearTimeout(detectarBancoTimer);
+      detectarBancoTimer = setTimeout(detectarBancoExtrato, 600);
+    });
+
+    document.getElementById("btn-abrir-mes-fixas").onclick = abrirControleMesFixas;
+    document.getElementById("btn-fx-mes-atualizar").onclick = () => carregarContasFixasMes();
 
     document.getElementById("btn-salvar-edicao-fixa").onclick = async () => {
       const msg = document.getElementById("ed-fx-msg");
@@ -1539,8 +2648,12 @@
         return;
       }
       try {
-        const res = await api("/api/extrato/importar", { method: "POST", body: JSON.stringify({ texto }) });
-        msg.textContent = `${res.lidas} linhas · ${res.inseridas} novas · ${res.duplicadas} duplicadas`;
+        const banco = document.getElementById("imp-banco").value || null;
+        const res = await api("/api/extrato/importar", {
+          method: "POST",
+          body: JSON.stringify({ texto, banco }),
+        });
+        msg.textContent = `${res.lidas} linhas · ${res.inseridas} novas · ${res.duplicadas} duplicadas · ${res.banco || ""}`;
         msg.className = "msg ok";
         await carregarPeriodo();
         await refreshAll();
@@ -1555,7 +2668,10 @@
       const f = ev.target.files[0];
       if (!f) return;
       const r = new FileReader();
-      r.onload = () => { document.getElementById("txt-extrato").value = r.result; };
+      r.onload = () => {
+        document.getElementById("txt-extrato").value = r.result;
+        detectarBancoExtrato();
+      };
       r.readAsText(f, "UTF-8");
     };
 
@@ -1610,6 +2726,284 @@
       }
     };
 
+    document.getElementById("btn-pl-atualizar").onclick = carregarPlanejamento;
+    document.getElementById("btn-orc-salvar").onclick = async () => {
+      await api("/api/orcamento", {
+        method: "POST",
+        body: JSON.stringify({
+          mes: mesPlanej(),
+          categoria: document.getElementById("orc-cat").value,
+          limite: document.getElementById("orc-lim").value,
+        }),
+      });
+      await carregarPlanejamento();
+    };
+    document.getElementById("btn-orc-copiar").onclick = async () => {
+      const mes = mesPlanej();
+      const y = parseInt(mes.slice(0, 4), 10);
+      const m = parseInt(mes.slice(5, 7), 10);
+      const ant = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+      await api("/api/orcamento/copiar", { method: "POST", body: JSON.stringify({ origem: ant, destino: mes }) });
+      await carregarPlanejamento();
+    };
+    document.getElementById("btn-503020").onclick = async () => {
+      await api("/api/regra-503020", {
+        method: "PUT",
+        body: JSON.stringify({
+          necessidades: Number(document.getElementById("r50-n").value),
+          desejos: Number(document.getElementById("r50-d").value),
+          poupanca: Number(document.getElementById("r50-p").value),
+        }),
+      });
+      await carregarPlanejamento();
+    };
+    document.getElementById("btn-res-mult").onclick = async () => {
+      const msg = document.getElementById("reserva-msg");
+      msg.className = "msg";
+      try {
+        await api("/api/reserva/multiplicador", {
+          method: "PUT",
+          body: JSON.stringify({ multiplicador: Number(document.getElementById("res-mult").value) }),
+        });
+        msg.textContent = "Meta de reserva salva.";
+        msg.className = "msg ok";
+        await carregarReserva();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+    document.getElementById("btn-meta").onclick = async () => {
+      await api("/api/metas", {
+        method: "POST",
+        body: JSON.stringify({
+          nome: document.getElementById("meta-nome").value,
+          valor_alvo: document.getElementById("meta-alvo").value,
+          valor_atual: document.getElementById("meta-inicial").value || "0",
+        }),
+      });
+      document.getElementById("meta-nome").value = "";
+      document.getElementById("meta-alvo").value = "";
+      document.getElementById("meta-inicial").value = "0";
+      await carregarMetas();
+    };
+    document.getElementById("btn-proj").onclick = async () => {
+      await api("/api/projetos", {
+        method: "POST",
+        body: JSON.stringify({
+          nome: document.getElementById("proj-nome").value,
+          valor_alvo: document.getElementById("proj-alvo").value,
+          valor_acumulado: document.getElementById("proj-acum").value,
+        }),
+      });
+      await carregarMetas();
+    };
+    document.getElementById("btn-inv-ativo").onclick = async () => {
+      const msg = document.getElementById("inv-msg");
+      msg.className = "msg";
+      try {
+        const nome = document.getElementById("inv-nome").value.trim();
+        if (!nome) throw new Error("Informe o nome do ativo.");
+        await api("/api/investimentos/ativos", {
+          method: "POST",
+          body: JSON.stringify({
+            nome,
+            tipo: document.getElementById("inv-tipo").value,
+            instituicao: document.getElementById("inv-inst").value || null,
+            valor_atual: document.getElementById("inv-val").value,
+          }),
+        });
+        document.getElementById("inv-nome").value = "";
+        document.getElementById("inv-inst").value = "";
+        document.getElementById("inv-val").value = "0";
+        msg.textContent = "Ativo salvo com sucesso.";
+        msg.className = "msg ok";
+        await carregarInvestimentos();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+    document.getElementById("btn-inv-mov").onclick = async () => {
+      const msg = document.getElementById("inv-msg");
+      msg.className = "msg";
+      try {
+        const ativoId = Number(document.getElementById("inv-mov-ativo").value);
+        if (!ativoId) throw new Error("Cadastre e selecione um ativo.");
+        await api("/api/investimentos/movimentos", {
+          method: "POST",
+          body: JSON.stringify({
+            ativo_id: ativoId,
+            data: document.getElementById("inv-mov-data").value,
+            tipo: document.getElementById("inv-mov-tipo").value,
+            valor: document.getElementById("inv-mov-val").value,
+          }),
+        });
+        document.getElementById("inv-mov-val").value = "";
+        msg.textContent = "Movimentação registrada.";
+        msg.className = "msg ok";
+        await carregarInvestimentos();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+    document.getElementById("btn-inv-aloc").onclick = async () => {
+      const msg = document.getElementById("inv-msg");
+      msg.className = "msg";
+      try {
+        await api("/api/investimentos/alocacao", {
+          method: "PUT",
+          body: JSON.stringify({
+            tipo_ativo: document.getElementById("inv-aloc-tipo").value,
+            percentual: document.getElementById("inv-aloc-pct").value,
+          }),
+        });
+        document.getElementById("inv-aloc-pct").value = "";
+        msg.textContent = "Meta de alocação salva.";
+        msg.className = "msg ok";
+        await carregarInvestimentos();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+    document.getElementById("btn-cc-salvar").onclick = async () => {
+      const msg = document.getElementById("cc-msg");
+      msg.className = "msg";
+      try {
+        const nome = document.getElementById("cc-nome").value.trim();
+        if (!nome) throw new Error("Informe o nome do cartão.");
+        await api("/api/cartoes", {
+          method: "POST",
+          body: JSON.stringify({
+            nome,
+            bandeira: document.getElementById("cc-bandeira").value || null,
+            dia_vencimento: Number(document.getElementById("cc-venc").value),
+            dia_fechamento: Number(document.getElementById("cc-fech").value) || null,
+            limite: document.getElementById("cc-limite").value || null,
+          }),
+        });
+        document.getElementById("cc-nome").value = "";
+        document.getElementById("cc-bandeira").value = "";
+        document.getElementById("cc-limite").value = "";
+        msg.textContent = "Cartão cadastrado.";
+        msg.className = "msg ok";
+        await carregarCartaoCredito();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+    document.getElementById("btn-cc-compra").onclick = async () => {
+      const msg = document.getElementById("cc-msg");
+      msg.className = "msg";
+      try {
+        const cartaoId = Number(document.getElementById("cc-comp-cartao").value);
+        if (!cartaoId) throw new Error("Selecione um cartão.");
+        await api("/api/cartoes/compras", {
+          method: "POST",
+          body: JSON.stringify({
+            cartao_id: cartaoId,
+            descricao: document.getElementById("cc-comp-desc").value,
+            valor_total: document.getElementById("cc-comp-valor").value,
+            parcelas: Number(document.getElementById("cc-comp-parc").value) || 1,
+            data_compra: document.getElementById("cc-comp-data").value,
+            primeira_fatura: document.getElementById("cc-comp-fatura").value,
+            observacao: document.getElementById("cc-comp-obs").value || null,
+          }),
+        });
+        document.getElementById("cc-comp-desc").value = "";
+        document.getElementById("cc-comp-valor").value = "";
+        document.getElementById("cc-comp-parc").value = "1";
+        document.getElementById("cc-comp-obs").value = "";
+        msg.textContent = "Compra registrada.";
+        msg.className = "msg ok";
+        await carregarCartaoCredito();
+      } catch (e) {
+        msg.textContent = "Erro: " + e.message;
+        msg.className = "msg err";
+      }
+    };
+    document.getElementById("btn-div").onclick = async () => {
+      await api("/api/dividas", {
+        method: "POST",
+        body: JSON.stringify({
+          nome: document.getElementById("div-nome").value,
+          valor_total: document.getElementById("div-total").value,
+          valor_pago: document.getElementById("div-pago").value,
+        }),
+      });
+      await carregarDividas();
+    };
+    document.getElementById("btn-regra").onclick = async () => {
+      await api("/api/regras-categoria", {
+        method: "POST",
+        body: JSON.stringify({
+          padrao: document.getElementById("regra-pad").value,
+          categoria: document.getElementById("regra-cat").value,
+        }),
+      });
+      await carregarConfig();
+      await refreshDashboard();
+    };
+    document.getElementById("btn-cb").onclick = async () => {
+      await api("/api/contas-bancarias", {
+        method: "POST",
+        body: JSON.stringify({ nome: document.getElementById("cb-nome").value }),
+      });
+      await carregarConfig();
+    };
+    document.getElementById("btn-tag").onclick = async () => {
+      await api("/api/tags", { method: "POST", body: JSON.stringify({ nome: document.getElementById("tag-nome").value }) });
+      await carregarConfig();
+    };
+    document.getElementById("btn-notif").onclick = async () => {
+      await api("/api/notificacoes", {
+        method: "PUT",
+        body: JSON.stringify({ email: document.getElementById("notif-email").value }),
+      });
+    };
+
+    document.getElementById("panel-metas").addEventListener("click", (e) => {
+      const btnMeta = e.target.closest(".btn-ap-meta");
+      if (btnMeta) {
+        const id = btnMeta.dataset.metaId;
+        const inp = btnMeta.closest(".input-group")?.querySelector(".ap-meta-input");
+        if (!inp || !inp.value.trim()) {
+          const msg = document.getElementById("meta-msg");
+          msg.textContent = "Informe o valor do aporte.";
+          msg.className = "msg err";
+          return;
+        }
+        registrarAporteMeta(id, inp.value.trim());
+        inp.value = "";
+        return;
+      }
+      const btnProj = e.target.closest(".btn-ap-proj");
+      if (btnProj) {
+        const id = btnProj.dataset.projId;
+        const inp = btnProj.closest(".input-group")?.querySelector(".ap-proj-input");
+        if (!inp || !inp.value.trim()) {
+          const msg = document.getElementById("meta-msg");
+          msg.textContent = "Informe o valor do aporte.";
+          msg.className = "msg err";
+          return;
+        }
+        registrarAporteProj(id, inp.value.trim());
+        inp.value = "";
+      }
+    });
+
+    document.getElementById("panel-metas").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const inp = e.target.closest(".ap-meta-input, .ap-proj-input");
+      if (!inp) return;
+      e.preventDefault();
+      const btn = inp.closest(".input-group")?.querySelector(".btn-ap-meta, .btn-ap-proj");
+      if (btn) btn.click();
+    });
+
     document.getElementById("nav-tabs").onclick = (e) => {
       const btn = e.target.closest("button[data-tab]");
       if (!btn) return;
@@ -1620,6 +3014,13 @@
       closeMobileSidebar();
       if (btn.dataset.tab === "extratos") carregarExtratos();
       if (btn.dataset.tab === "fixas") carregarPlanejamentoFixas();
+      if (btn.dataset.tab === "planej") carregarPlanejamento();
+      if (btn.dataset.tab === "reserva") carregarReserva();
+      if (btn.dataset.tab === "metas") carregarMetas();
+      if (btn.dataset.tab === "invest") carregarInvestimentos();
+      if (btn.dataset.tab === "cartao") carregarCartaoCredito();
+      if (btn.dataset.tab === "dividas") carregarDividas();
+      if (btn.dataset.tab === "config") carregarConfig();
     };
 
     document.getElementById("btn-menu").onclick = () => {
@@ -1654,6 +3055,13 @@
         badgeWrap.classList.remove("offline");
         await carregarCategorias();
         await carregarPeriodo();
+        await carregarFiltrosBanco();
+        document.getElementById("pl-mes").value = mesAtual();
+        const fxMesCtrl = document.getElementById("fx-mes-ctrl");
+        if (fxMesCtrl) fxMesCtrl.value = mesAtual();
+        document.getElementById("inv-mov-data").value = new Date().toISOString().slice(0, 10);
+        document.getElementById("cc-comp-data").value = new Date().toISOString().slice(0, 10);
+        document.getElementById("cc-comp-fatura").value = mesAtual();
         setTipo("saida");
         setTipoEdicao("saida");
         await api("/api/recategorizar", { method: "POST" });

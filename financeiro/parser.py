@@ -179,6 +179,33 @@ def parse_extrato_bradesco(conteudo: str) -> list[LinhaExtrato]:
     return linhas
 
 
+def detectar_banco_extrato(conteudo: str) -> str:
+    """Identifica o banco/instituição a partir do cabeçalho ou formato do arquivo."""
+    texto = conteudo.strip().lstrip("\ufeff")
+    if eh_extrato_nubank(texto):
+        return "Nubank"
+    amostra = texto[:4000].upper()
+    marcas = (
+        ("BRB", "BRB"),
+        ("BANCO DE BRASILIA", "BRB"),
+        ("BRADESCO", "Bradesco"),
+        ("ITAÚ", "Itaú"),
+        ("ITAU", "Itaú"),
+        ("SANTANDER", "Santander"),
+        ("CAIXA ECON", "Caixa"),
+        ("BANCO DO BRASIL", "Banco do Brasil"),
+        ("BANCO INTER", "Inter"),
+        ("C6 BANK", "C6 Bank"),
+        ("NUBANK", "Nubank"),
+    )
+    for chave, rotulo in marcas:
+        if chave in amostra:
+            return rotulo
+    if ";" in texto and _ROW_START.search(texto):
+        return "Bradesco"
+    return "Outro"
+
+
 def parse_extrato_texto(conteudo: str) -> list[LinhaExtrato]:
     """Detecta Nubank (CSV) ou Bradesco (';') e importa as linhas."""
     texto = conteudo.strip().lstrip("\ufeff")
@@ -333,6 +360,7 @@ CATEGORIAS_SUGERIDAS = [
     "PIX",
     "Transferência PIX",
     "Rendimentos",
+    "Investimentos",
     "Taxas bancárias",
     "Ajuste / lançamento",
     "Outros",

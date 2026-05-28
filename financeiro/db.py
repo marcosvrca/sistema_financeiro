@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -48,6 +49,75 @@ def _row_val(row: Any, key: str) -> Any:
     if hasattr(row, "keys"):
         return row[key]
     return row[key]
+
+
+@dataclass
+class FiltroVisao:
+    """Filtros de dashboard / movimentos por banco ou lote de importação."""
+
+    banco: str | None = None
+    importacao_id: int | None = None
+    incluir_manuais: bool = True
+
+
+def _clausula_filtro_movimentos(
+    filtro: FiltroVisao | None,
+    alias: str = "",
+) -> tuple[str, list[Any]]:
+    if not filtro or (not filtro.banco and filtro.importacao_id is None):
+        return "", []
+    col = f"{alias}." if alias else ""
+    params: list[Any] = []
+    if filtro.importacao_id is not None:
+        if filtro.importacao_id == 0:
+            return f" AND {col}importacao_id IS NULL", []
+        return f" AND {col}importacao_id = ?", [filtro.importacao_id]
+    if filtro.banco == "Importação antiga":
+        return f" AND {col}importacao_id IS NULL", []
+    return (
+        f" AND {col}importacao_id IN (SELECT id FROM importacoes_extrato WHERE banco = ?)",
+        [filtro.banco],
+    )
+
+
+def _tem_coluna(conn: Any, tabela: str, coluna: str) -> bool:
+    if using_postgres():
+        row = conn.execute(
+            """
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s
+            """,
+            (tabela, coluna),
+        ).fetchone()
+        return row is not None
+    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({tabela})").fetchall()}
+    return coluna in cols
+
+
+def _backfill_banco_importacoes(conn: Any) -> None:
+    if not _tem_coluna(conn, "importacoes_extrato", "banco"):
+        return
+    imports = conn.execute(
+        q("SELECT id FROM importacoes_extrato WHERE banco IS NULL OR banco = ''")
+    ).fetchall()
+    for imp in imports:
+        iid = imp["id"]
+        row = conn.execute(
+            q(
+                f"""
+            SELECT COUNT(*) AS n FROM movimentos
+            WHERE importacao_id = ? AND saldo IS NOT NULL
+            """
+                + ("" if using_postgres() else " AND saldo != ''")
+            ),
+            (iid,),
+        ).fetchone()
+        tem_saldo = int(row["n"]) > 0 if row else False
+        banco = "Bradesco" if tem_saldo else "Nubank"
+        conn.execute(
+            q("UPDATE importacoes_extrato SET banco = ? WHERE id = ?"),
+            (banco, iid),
+        )
 
 
 def _migrate(conn: Any) -> None:
@@ -120,6 +190,63 @@ def _migrate(conn: Any) -> None:
         )
         """
     )
+    _migrate_banco_extrato(conn)
+    from financeiro.features import migrate_extras
+
+    migrate_extras(conn)
+    _migrate_contas_fixas_mes(conn)
+
+
+def _migrate_banco_extrato(conn: Any) -> None:
+    if using_postgres():
+        row = conn.execute(
+            """
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'importacoes_extrato' AND column_name = 'banco'
+            """
+        ).fetchone()
+        if not row:
+            conn.execute("ALTER TABLE importacoes_extrato ADD COLUMN banco TEXT")
+    else:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(importacoes_extrato)").fetchall()}
+        if "banco" not in cols:
+            conn.execute("ALTER TABLE importacoes_extrato ADD COLUMN banco TEXT")
+    _backfill_banco_importacoes(conn)
+
+
+def _migrate_contas_fixas_mes(conn: Any) -> None:
+    if using_postgres():
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS contas_fixas_mes (
+                id SERIAL PRIMARY KEY,
+                conta_fixa_id INTEGER NOT NULL REFERENCES contas_fixas(id),
+                mes TEXT NOT NULL,
+                valor_real NUMERIC(14,2) NOT NULL,
+                pago SMALLINT NOT NULL DEFAULT 0,
+                data_pagamento DATE,
+                observacao TEXT,
+                UNIQUE (conta_fixa_id, mes)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_contas_fixas_mes_mes ON contas_fixas_mes(mes)")
+    else:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS contas_fixas_mes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conta_fixa_id INTEGER NOT NULL REFERENCES contas_fixas(id),
+                mes TEXT NOT NULL,
+                valor_real TEXT NOT NULL,
+                pago INTEGER NOT NULL DEFAULT 0,
+                data_pagamento TEXT,
+                observacao TEXT,
+                UNIQUE (conta_fixa_id, mes)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_contas_fixas_mes_mes ON contas_fixas_mes(mes)")
 
 
 def _skip_schema_stmt(stmt: str) -> bool:
@@ -142,14 +269,21 @@ def init_db(db_path: Path | str | None = None) -> None:
         _migrate(conn)
 
 
+def _categorizar_padrao(historico: str) -> str:
+    from financeiro.features import categoria_efetiva
+
+    return categoria_efetiva(historico)
+
+
 def inserir_movimentos(
     db_path: Path | str | None = None,
     linhas: list[LinhaExtrato] | None = None,
     categorizar: Callable[[str], str] | None = None,
+    banco: str | None = None,
 ) -> tuple[int, int, int | None]:
     if linhas is None:
         linhas = []
-    cat_fn = categorizar or categoria_por_historico
+    cat_fn = categorizar or _categorizar_padrao
     inseridos = 0
     ignorados = 0
     if not linhas:
@@ -175,19 +309,19 @@ def inserir_movimentos(
         cur_imp = conn.execute(
             q(
                 """
-            INSERT INTO importacoes_extrato (qtd_lidas, qtd_inseridas, qtd_duplicadas, data_min, data_max)
-            VALUES (?, 0, 0, ?, ?)
+            INSERT INTO importacoes_extrato (qtd_lidas, qtd_inseridas, qtd_duplicadas, data_min, data_max, banco)
+            VALUES (?, 0, 0, ?, ?, ?)
             RETURNING id
             """
             )
             if using_postgres()
             else q(
                 """
-            INSERT INTO importacoes_extrato (qtd_lidas, qtd_inseridas, qtd_duplicadas, data_min, data_max)
-            VALUES (?, 0, 0, ?, ?)
+            INSERT INTO importacoes_extrato (qtd_lidas, qtd_inseridas, qtd_duplicadas, data_min, data_max, banco)
+            VALUES (?, 0, 0, ?, ?, ?)
             """
             ),
-            (len(linhas), data_min.isoformat(), data_max.isoformat()),
+            (len(linhas), data_min.isoformat(), data_max.isoformat(), banco),
         )
         if using_postgres():
             importacao_id = int(cur_imp.fetchone()["id"])
@@ -236,7 +370,7 @@ def listar_importacoes_extrato(db_path: Path | str | None = None) -> list[dict[s
                 q(
                     """
                 SELECT i.id, i.criado_em, i.qtd_lidas, i.qtd_inseridas, i.qtd_duplicadas,
-                       i.data_min, i.data_max,
+                       i.data_min, i.data_max, i.banco,
                        (SELECT COUNT(*) FROM movimentos m WHERE m.importacao_id = i.id) AS qtd_movimentos
                 FROM importacoes_extrato i
                 ORDER BY i.id DESC
@@ -258,6 +392,7 @@ def listar_importacoes_extrato(db_path: Path | str | None = None) -> list[dict[s
                 "qtd_duplicadas": r["qtd_duplicadas"],
                 "data_min": str(r["data_min"])[:10] if r["data_min"] else None,
                 "data_max": str(r["data_max"])[:10] if r["data_max"] else None,
+                "banco": r["banco"] if r["banco"] else None,
                 "qtd_movimentos": r["qtd_movimentos"],
                 "legado": False,
             }
@@ -282,7 +417,57 @@ def listar_importacoes_extrato(db_path: Path | str | None = None) -> list[dict[s
                 "qtd_duplicadas": 0,
                 "data_min": str(rng["mi"])[:10] if rng and rng["mi"] else None,
                 "data_max": str(rng["ma"])[:10] if rng and rng["ma"] else None,
+                "banco": "Importação antiga",
                 "qtd_movimentos": n_legado,
+                "legado": True,
+            }
+        )
+    return out
+
+
+def listar_bancos_extrato(db_path: Path | str | None = None) -> list[dict[str, Any]]:
+    """Bancos distintos com contagem de movimentos para filtros do dashboard."""
+    with get_conn(db_path) as conn:
+        tem_banco = _tem_coluna(conn, "importacoes_extrato", "banco")
+        rows: list[Any] = []
+        if tem_banco:
+            rows = list(
+                conn.execute(
+                    q(
+                        """
+                    SELECT i.banco AS banco,
+                           COUNT(DISTINCT i.id) AS importacoes,
+                           (SELECT COUNT(*) FROM movimentos m
+                            WHERE m.importacao_id IN (
+                                SELECT id FROM importacoes_extrato ie WHERE ie.banco = i.banco
+                            )) AS movimentos
+                    FROM importacoes_extrato i
+                    WHERE i.banco IS NOT NULL AND i.banco != ''
+                    GROUP BY i.banco
+                    ORDER BY i.banco
+                    """
+                    )
+                ).fetchall()
+            )
+        legado = conn.execute(
+            q("SELECT COUNT(*) AS n FROM movimentos WHERE importacao_id IS NULL")
+        ).fetchone()
+    out: list[dict[str, Any]] = [
+        {
+            "banco": r["banco"],
+            "importacoes": r["importacoes"],
+            "movimentos": r["movimentos"],
+            "legado": False,
+        }
+        for r in rows
+    ]
+    n_legado = int(legado["n"]) if legado else 0
+    if n_legado > 0:
+        out.append(
+            {
+                "banco": "Importação antiga",
+                "importacoes": 1,
+                "movimentos": n_legado,
                 "legado": True,
             }
         )
@@ -302,14 +487,14 @@ def excluir_importacao_extrato(db_path: Path | str | None = None, importacao_id:
 
 
 def recategorizar_movimentos(db_path: Path | str | None = None) -> int:
-    """Reaplica categoria_por_historico em todos os movimentos do extrato. Retorna quantidade atualizada."""
-    from financeiro.parser import categoria_por_historico
+    """Reaplica categorização (regras + heurísticas) em todos os movimentos do extrato."""
+    from financeiro.features import categoria_efetiva
 
     atualizados = 0
     with get_conn(db_path) as conn:
         rows = conn.execute(q("SELECT id, historico FROM movimentos")).fetchall()
         for row in rows:
-            cat = categoria_por_historico(row["historico"])
+            cat = categoria_efetiva(row["historico"], db_path)
             cur = conn.execute(
                 q("UPDATE movimentos SET categoria = ? WHERE id = ?"),
                 (cat, row["id"]),
@@ -391,6 +576,150 @@ def atualizar_conta_fixa(
 def desativar_conta_fixa(db_path: Path | str | None = None, conta_id: int = 0) -> None:
     with get_conn(db_path) as conn:
         conn.execute(q("UPDATE contas_fixas SET ativo = 0 WHERE id = ?"), (conta_id,))
+
+
+def _status_conta_fixa_mes(pago: bool, vencimento: date, ref: date | None = None) -> str:
+    if pago:
+        return "pago"
+    hoje = ref or date.today()
+    if vencimento < hoje:
+        return "vencido"
+    return "a_pagar"
+
+
+def _parse_mes_ref(mes: str) -> tuple[int, int]:
+    partes = mes.strip().split("-")
+    if len(partes) != 2:
+        raise ValueError("Mês inválido; use AAAA-MM.")
+    return int(partes[0]), int(partes[1])
+
+
+def listar_contas_fixas_mes(mes: str, db_path: Path | str | None = None) -> dict[str, Any]:
+    import calendar
+
+    ano, mes_num = _parse_mes_ref(mes)
+    ultimo_dia = calendar.monthrange(ano, mes_num)[1]
+    hoje = date.today()
+    contas = listar_contas_fixas(db_path, apenas_ativas=True)
+
+    overrides: dict[int, Any] = {}
+    with get_conn(db_path) as conn:
+        rows = conn.execute(q("SELECT * FROM contas_fixas_mes WHERE mes = ?"), (mes,)).fetchall()
+        overrides = {int(r["conta_fixa_id"]): r for r in rows}
+
+    itens: list[dict[str, Any]] = []
+    total_cadastro = Decimal(0)
+    total_real = Decimal(0)
+    total_pago = Decimal(0)
+    total_a_pagar = Decimal(0)
+    total_vencido = Decimal(0)
+    qtd_pago = qtd_a_pagar = qtd_vencido = 0
+
+    for c in contas:
+        cid = int(c["id"])
+        valor_cad = _d(c["valor"])
+        ov = overrides.get(cid)
+        valor_real = _d(ov["valor_real"]) if ov else valor_cad
+        pago = bool(ov["pago"]) if ov else False
+        data_pag = ov["data_pagamento"] if ov else None
+        obs_mes = ov["observacao"] if ov else None
+        dia = min(int(c["dia_vencimento"] or 1), ultimo_dia)
+        vencimento = date(ano, mes_num, dia)
+        status = _status_conta_fixa_mes(pago, vencimento, hoje)
+
+        total_cadastro += valor_cad
+        total_real += valor_real
+        if status == "pago":
+            total_pago += valor_real
+            qtd_pago += 1
+        elif status == "vencido":
+            total_vencido += valor_real
+            total_a_pagar += valor_real
+            qtd_vencido += 1
+        else:
+            total_a_pagar += valor_real
+            qtd_a_pagar += 1
+
+        itens.append(
+            {
+                "conta_fixa_id": cid,
+                "nome": c["nome"],
+                "categoria": c["categoria"],
+                "dia_vencimento": c["dia_vencimento"],
+                "dia": dia,
+                "vencimento": vencimento.isoformat(),
+                "valor_cadastro": valor_cad,
+                "valor_real": valor_real,
+                "valor_editado": ov is not None,
+                "pago": pago,
+                "data_pagamento": data_pag.isoformat() if hasattr(data_pag, "isoformat") else data_pag,
+                "observacao": obs_mes,
+                "status": status,
+            }
+        )
+
+    itens.sort(key=lambda x: (x["dia"], x["nome"]))
+    qtd_total = len(itens)
+    pct_pago = (total_pago / total_real * 100).quantize(Decimal("0.01")) if total_real > 0 else Decimal(0)
+    return {
+        "mes": mes,
+        "itens": itens,
+        "resumo": {
+            "total_cadastro": total_cadastro,
+            "total_real": total_real,
+            "total_pago": total_pago,
+            "total_a_pagar": total_a_pagar,
+            "total_vencido": total_vencido,
+            "qtd_contas": qtd_total,
+            "qtd_pagas": qtd_pago,
+            "qtd_a_pagar": qtd_a_pagar,
+            "qtd_vencidas": qtd_vencido,
+            "qtd_pendentes": qtd_a_pagar + qtd_vencido,
+            "pct_pago": pct_pago,
+        },
+    }
+
+
+def salvar_conta_fixa_mes(
+    conta_fixa_id: int,
+    mes: str,
+    valor_real: Decimal,
+    pago: bool,
+    data_pagamento: date | None = None,
+    observacao: str | None = None,
+    db_path: Path | str | None = None,
+) -> None:
+    _parse_mes_ref(mes)
+    v = valor_real if using_postgres() else str(valor_real)
+    if using_postgres():
+        dp: Any = data_pagamento
+    else:
+        dp = data_pagamento.isoformat() if data_pagamento else None
+    flag = 1 if pago else 0
+    if pago and data_pagamento is None:
+        data_pagamento = date.today()
+        dp = data_pagamento if using_postgres() else data_pagamento.isoformat()
+    with get_conn(db_path) as conn:
+        ativa = conn.execute(
+            q("SELECT 1 FROM contas_fixas WHERE id = ? AND ativo = 1"),
+            (conta_fixa_id,),
+        ).fetchone()
+        if not ativa:
+            raise ValueError("Conta fixa não encontrada ou inativa.")
+        conn.execute(
+            q(
+                """
+            INSERT INTO contas_fixas_mes (conta_fixa_id, mes, valor_real, pago, data_pagamento, observacao)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(conta_fixa_id, mes) DO UPDATE SET
+                valor_real = excluded.valor_real,
+                pago = excluded.pago,
+                data_pagamento = excluded.data_pagamento,
+                observacao = excluded.observacao
+            """
+            ),
+            (conta_fixa_id, mes, v, flag, dp, observacao),
+        )
 
 
 def inserir_lancamento_manual(
@@ -528,7 +857,10 @@ def resumo_por_categoria(
     data_fim: date | None = None,
     db_path: Path | str | None = None,
     incluir_manuais: bool = True,
+    filtro: FiltroVisao | None = None,
 ) -> list[tuple[str, Decimal, Decimal]]:
+    if filtro is not None:
+        incluir_manuais = filtro.incluir_manuais
     sql = f"""
         SELECT categoria, {_sum_credito()} AS c, {_sum_debito()} AS d
         FROM movimentos WHERE 1=1
@@ -540,6 +872,9 @@ def resumo_por_categoria(
     if data_fim:
         sql += " AND data <= ?"
         params.append(data_fim.isoformat())
+    frag, p_frag = _clausula_filtro_movimentos(filtro)
+    sql += frag
+    params.extend(p_frag)
     sql += " GROUP BY categoria"
     agg: dict[str, tuple[Decimal, Decimal]] = {}
     with get_conn(db_path) as conn:
@@ -576,6 +911,7 @@ def resumo_mensal(
     data_ini: date | None = None,
     data_fim: date | None = None,
     db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
 ) -> list[ResumoMensal]:
     mes_col = _mes_expr("data")
     sql = f"""
@@ -589,6 +925,9 @@ def resumo_mensal(
     if data_fim:
         sql += " AND data <= ?"
         params.append(data_fim.isoformat())
+    frag, p_frag = _clausula_filtro_movimentos(filtro)
+    sql += frag
+    params.extend(p_frag)
     sql += f" GROUP BY {mes_col}"
 
     buckets: dict[str, tuple[Decimal, Decimal]] = {}
@@ -596,24 +935,26 @@ def resumo_mensal(
         for row in conn.execute(q(sql), params).fetchall():
             buckets[str(row["mes"])] = (_d(row["c"]), _d(row["d"]))
 
-    sql_m = f"SELECT {mes_col} AS mes, tipo, valor FROM lancamentos_manuais WHERE 1=1"
-    p_m: list[Any] = []
-    if data_ini:
-        sql_m += " AND data >= ?"
-        p_m.append(data_ini.isoformat())
-    if data_fim:
-        sql_m += " AND data <= ?"
-        p_m.append(data_fim.isoformat())
-    with get_conn(db_path) as conn:
-        for row in conn.execute(q(sql_m), p_m).fetchall():
-            mes = str(row["mes"])
-            c, d = buckets.get(mes, (Decimal(0), Decimal(0)))
-            val = _d(row["valor"])
-            if row["tipo"] == "entrada":
-                c += val
-            else:
-                d += val
-            buckets[mes] = (c, d)
+    incluir_manuais = filtro.incluir_manuais if filtro else True
+    if incluir_manuais:
+        sql_m = f"SELECT {mes_col} AS mes, tipo, valor FROM lancamentos_manuais WHERE 1=1"
+        p_m: list[Any] = []
+        if data_ini:
+            sql_m += " AND data >= ?"
+            p_m.append(data_ini.isoformat())
+        if data_fim:
+            sql_m += " AND data <= ?"
+            p_m.append(data_fim.isoformat())
+        with get_conn(db_path) as conn:
+            for row in conn.execute(q(sql_m), p_m).fetchall():
+                mes = str(row["mes"])
+                c, d = buckets.get(mes, (Decimal(0), Decimal(0)))
+                val = _d(row["valor"])
+                if row["tipo"] == "entrada":
+                    c += val
+                else:
+                    d += val
+                buckets[mes] = (c, d)
 
     return [
         ResumoMensal(mes=m, creditos=c, debitos=d, liquido=c - d)
@@ -621,28 +962,91 @@ def resumo_mensal(
     ]
 
 
-def ultimo_saldo(db_path: Path | str | None = None) -> Decimal | None:
+def ultimo_saldo(
+    db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
+) -> Decimal | None:
     cond = "saldo IS NOT NULL" if using_postgres() else "saldo IS NOT NULL AND saldo != ''"
+    frag, params = _clausula_filtro_movimentos(filtro)
     with get_conn(db_path) as conn:
         row = conn.execute(
             q(
                 f"""
             SELECT saldo FROM movimentos
-            WHERE {cond}
+            WHERE {cond}{frag}
             ORDER BY data DESC, id DESC
             LIMIT 1
             """
-            )
+            ),
+            params,
         ).fetchone()
     if not row or row["saldo"] is None:
         return None
     return _d(row["saldo"])
 
 
+def calcular_saldo_consolidado(
+    db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
+) -> Decimal:
+    """Entradas − saídas (extrato + lançamentos manuais). Usado quando o extrato não traz coluna saldo."""
+    frag, p_frag = _clausula_filtro_movimentos(filtro)
+    with get_conn(db_path) as conn:
+        mov = conn.execute(
+            q(f"SELECT {_sum_credito()} AS c, {_sum_debito()} AS d FROM movimentos WHERE 1=1{frag}"),
+            p_frag,
+        ).fetchone()
+        man_c = man_d = Decimal(0)
+        if filtro is None or filtro.incluir_manuais:
+            if using_postgres():
+                man = conn.execute(
+                    q(
+                        """
+                    SELECT
+                      COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END), 0) AS c,
+                      COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END), 0) AS d
+                    FROM lancamentos_manuais
+                    """
+                    )
+                ).fetchone()
+            else:
+                man = conn.execute(
+                    q(
+                        """
+                    SELECT
+                      COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN CAST(valor AS REAL) ELSE 0 END), 0) AS c,
+                      COALESCE(SUM(CASE WHEN tipo = 'saida' THEN CAST(valor AS REAL) ELSE 0 END), 0) AS d
+                    FROM lancamentos_manuais
+                    """
+                    )
+                ).fetchone()
+            man_c = _d(man["c"])
+            man_d = _d(man["d"])
+    total_c = _d(mov["c"]) + man_c
+    total_d = _d(mov["d"]) + man_d
+    return total_c - total_d
+
+
+def saldo_disponivel(
+    db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
+) -> tuple[Decimal, str]:
+    """
+    Saldo para reserva e dashboard.
+    Preferência: coluna saldo do extrato (Bradesco etc.).
+    Fallback: líquido calculado (Nubank CSV e lançamentos manuais).
+    """
+    s = ultimo_saldo(db_path, filtro)
+    if s is not None:
+        return s, "extrato"
+    return calcular_saldo_consolidado(db_path, filtro), "calculado"
+
+
 def calcular_indicadores(
     data_ini: date | None = None,
     data_fim: date | None = None,
     db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
 ) -> Indicadores:
     q_mov = "SELECT data, historico, credito, debito FROM movimentos WHERE 1=1"
     params: list[Any] = []
@@ -652,18 +1056,23 @@ def calcular_indicadores(
     if data_fim:
         q_mov += " AND data <= ?"
         params.append(data_fim.isoformat())
+    frag, p_frag = _clausula_filtro_movimentos(filtro)
+    q_mov += frag
+    params.extend(p_frag)
 
     with get_conn(db_path) as conn:
         movs = list(conn.execute(q(q_mov), params).fetchall())
-        q_man = "SELECT tipo, valor FROM lancamentos_manuais WHERE 1=1"
-        p_man: list[Any] = []
-        if data_ini:
-            q_man += " AND data >= ?"
-            p_man.append(data_ini.isoformat())
-        if data_fim:
-            q_man += " AND data <= ?"
-            p_man.append(data_fim.isoformat())
-        mans = list(conn.execute(q(q_man), p_man).fetchall())
+        mans: list[Any] = []
+        if filtro is None or filtro.incluir_manuais:
+            q_man = "SELECT tipo, valor FROM lancamentos_manuais WHERE 1=1"
+            p_man: list[Any] = []
+            if data_ini:
+                q_man += " AND data >= ?"
+                p_man.append(data_ini.isoformat())
+            if data_fim:
+                q_man += " AND data <= ?"
+                p_man.append(data_fim.isoformat())
+            mans = list(conn.execute(q(q_man), p_man).fetchall())
 
     padroes = _padroes_fixas(db_path)
     total_c = Decimal(0)
@@ -792,6 +1201,7 @@ def listar_movimentos(
     data_fim: date | None = None,
     categoria: str | None = None,
     db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
 ) -> list[Any]:
     sql = "SELECT id, data, historico, docto, credito, debito, saldo, categoria FROM movimentos WHERE 1=1"
     params: list[Any] = []
@@ -804,6 +1214,9 @@ def listar_movimentos(
     if categoria:
         sql += " AND categoria = ?"
         params.append(categoria)
+    frag, p_frag = _clausula_filtro_movimentos(filtro)
+    sql += frag
+    params.extend(p_frag)
     sql += " ORDER BY data DESC, id DESC"
     with get_conn(db_path) as conn:
         return list(conn.execute(q(sql), params).fetchall())
@@ -813,10 +1226,11 @@ def listar_consolidado(
     data_ini: date | None = None,
     data_fim: date | None = None,
     db_path: Path | str | None = None,
+    filtro: FiltroVisao | None = None,
 ) -> list[dict[str, Any]]:
     """Extrato + lançamentos manuais em uma lista ordenada por data."""
     itens: list[dict[str, Any]] = []
-    for r in listar_movimentos(data_ini, data_fim, db_path=db_path):
+    for r in listar_movimentos(data_ini, data_fim, db_path=db_path, filtro=filtro):
         itens.append(
             {
                 "id": f"e-{r['id']}",
@@ -830,22 +1244,23 @@ def listar_consolidado(
                 "tipo_lanc": None,
             }
         )
-    for r in listar_lancamentos_manuais(data_ini, data_fim, db_path):
-        val = _d(r["valor"])
-        itens.append(
-            {
-                "id": f"m-{r['id']}",
-                "data": str(r["data"])[:10],
-                "descricao": r["descricao"],
-                "credito": val if r["tipo"] == "entrada" else None,
-                "debito": val if r["tipo"] == "saida" else None,
-                "saldo": None,
-                "categoria": r["categoria"],
-                "origem": "manual",
-                "tipo_lanc": r["tipo"],
-                "manual_id": r["id"],
-            }
-        )
+    if filtro is None or filtro.incluir_manuais:
+        for r in listar_lancamentos_manuais(data_ini, data_fim, db_path):
+            val = _d(r["valor"])
+            itens.append(
+                {
+                    "id": f"m-{r['id']}",
+                    "data": str(r["data"])[:10],
+                    "descricao": r["descricao"],
+                    "credito": val if r["tipo"] == "entrada" else None,
+                    "debito": val if r["tipo"] == "saida" else None,
+                    "saldo": None,
+                    "categoria": r["categoria"],
+                    "origem": "manual",
+                    "tipo_lanc": r["tipo"],
+                    "manual_id": r["id"],
+                }
+            )
     itens.sort(key=lambda x: (x["data"], x["id"]), reverse=True)
     return itens
 
