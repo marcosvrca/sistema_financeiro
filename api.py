@@ -4,6 +4,7 @@ API REST + painel web. Execute via Docker ou: uvicorn api:app --reload --port 80
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -130,7 +131,23 @@ def _fmt_br(val: Decimal | None) -> str:
 def _parse_date(s: str | None) -> date | None:
     if not s:
         return None
-    return date.fromisoformat(s[:10])
+    try:
+        return date.fromisoformat(s[:10])
+    except ValueError:
+        raise HTTPException(400, f"Data inválida: {s!r} (use AAAA-MM-DD).") from None
+
+
+def _parse_mes(s: str | None) -> str:
+    ref = (s or date.today().strftime("%Y-%m")).strip()
+    if len(ref) != 7 or ref[4] != "-":
+        raise HTTPException(400, f"Mês inválido: {s!r} (use AAAA-MM).")
+    try:
+        y, m = int(ref[:4]), int(ref[5:7])
+        if m < 1 or m > 12:
+            raise ValueError
+    except ValueError:
+        raise HTTPException(400, f"Mês inválido: {s!r} (use AAAA-MM).") from None
+    return ref
 
 
 def _parse_filtro(
@@ -199,7 +216,18 @@ app.add_middleware(
 def startup() -> None:
     if not using_postgres():
         SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    init_db()
+    last_err: Exception | None = None
+    for attempt in range(8):
+        try:
+            init_db()
+            return
+        except Exception as exc:
+            last_err = exc
+            if not using_postgres() or attempt == 7:
+                break
+            time.sleep(min(2**attempt, 10))
+    if last_err:
+        raise last_err
 
 
 @app.get("/")
@@ -209,7 +237,15 @@ def pagina_inicial() -> FileResponse:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "banco": "postgresql" if using_postgres() else "sqlite"}
+    from financeiro.conn import get_conn
+
+    banco = "postgresql" if using_postgres() else "sqlite"
+    try:
+        with get_conn() as conn:
+            conn.execute("SELECT 1")
+        return {"ok": True, "banco": banco}
+    except Exception as exc:
+        raise HTTPException(503, f"Banco indisponível: {exc}") from exc
 
 
 @app.get("/api/categorias")
@@ -362,8 +398,25 @@ def editar_lancamento(lanc_id: int, body: LancamentoIn) -> dict:
 
 @app.delete("/api/lancamentos/{lanc_id}")
 def remover_lancamento(lanc_id: int) -> dict:
-    excluir_lancamento_manual(lanc_id=lanc_id)
+    if not excluir_lancamento_manual(lanc_id=lanc_id):
+        raise HTTPException(404, "Lançamento não encontrado.")
     return {"ok": True}
+
+
+@app.get("/api/lancamentos")
+def listar_lancamentos(de: str | None = None, ate: str | None = None) -> list[dict]:
+    rows = listar_lancamentos_manuais(_parse_date(de), _parse_date(ate))
+    return [
+        {
+            "id": r["id"],
+            "data": str(r["data"])[:10],
+            "descricao": r["descricao"],
+            "valor": float(_d(r["valor"])),
+            "tipo": r["tipo"],
+            "categoria": r["categoria"],
+        }
+        for r in rows
+    ]
 
 
 @app.get("/api/lancamentos/recentes")
@@ -516,7 +569,7 @@ def _contas_fixas_mes_payload(mes: str) -> dict:
 
 @app.get("/api/contas-fixas/mes")
 def api_contas_fixas_mes(mes: str | None = None) -> dict:
-    ref = mes or date.today().strftime("%Y-%m")
+    ref = _parse_mes(mes)
     return _contas_fixas_mes_payload(ref)
 
 
@@ -665,7 +718,7 @@ class AtivoIn(BaseModel):
 class MovInvestIn(BaseModel):
     ativo_id: int
     data: str
-    tipo: str
+    tipo: str = Field(..., pattern="^(aporte|rendimento|resgate)$")
     valor: str
     observacao: str | None = None
 
@@ -724,7 +777,7 @@ class ValorAcumuladoIn(BaseModel):
 
 @app.get("/api/calendario")
 def api_calendario(mes: str | None = None) -> dict:
-    ref = mes or date.today().strftime("%Y-%m")
+    ref = _parse_mes(mes)
     y, m = int(ref[:4]), int(ref[5:7])
     cal = calendario_vencimentos(y, m)
     return {
@@ -741,7 +794,7 @@ def api_calendario(mes: str | None = None) -> dict:
 
 @app.get("/api/orcamento")
 def api_orcamento(mes: str | None = None) -> list[dict]:
-    ref = mes or date.today().strftime("%Y-%m")
+    ref = _parse_mes(mes)
     rows = orcamento_com_alertas(ref)
     return [
         {
@@ -783,7 +836,7 @@ def api_put_503020(body: Regra503020In) -> dict:
 
 @app.get("/api/analise-503020")
 def api_analise_503020(mes: str | None = None) -> dict:
-    ref = mes or date.today().strftime("%Y-%m")
+    ref = _parse_mes(mes)
     sal = obter_salario_mensal()
     if sal is None:
         raise HTTPException(400, "Cadastre o salário mensal primeiro.")
@@ -792,7 +845,7 @@ def api_analise_503020(mes: str | None = None) -> dict:
 
 @app.get("/api/comparativo")
 def api_comparativo(mes: str | None = None) -> dict:
-    ref = mes or date.today().strftime("%Y-%m")
+    ref = _parse_mes(mes)
     return comparativo_meses(ref)
 
 
@@ -1036,7 +1089,10 @@ def api_reg_mov_inv(body: MovInvestIn) -> dict:
     d = _parse_date(body.data)
     if v is None or d is None:
         raise HTTPException(400, "Data e valor válidos são obrigatórios.")
-    mid = registrar_mov_investimento(body.ativo_id, d, body.tipo, v, body.observacao)
+    try:
+        mid = registrar_mov_investimento(body.ativo_id, d, body.tipo, v, body.observacao)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     return {"ok": True, "id": mid}
 
 
@@ -1185,7 +1241,7 @@ def api_put_notif(body: NotifIn) -> dict:
 
 @app.get("/api/alertas")
 def api_alertas(mes: str | None = None) -> list[dict]:
-    ref = mes or date.today().strftime("%Y-%m")
+    ref = _parse_mes(mes)
     return resumo_alertas_sistema(ref)
 
 

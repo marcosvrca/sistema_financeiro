@@ -811,12 +811,13 @@ def resumo_investimentos(db_path: Path | str | None = None) -> dict[str, Any]:
     mes = hoje.strftime("%Y-%m")
     aportes_mes = Decimal(0)
     rend_mes = Decimal(0)
+    mes_col = "to_char(data, 'YYYY-MM')" if using_postgres() else "substr(data, 1, 7)"
     with get_conn(db_path) as conn:
         rows = conn.execute(
             q(
-                """
+                f"""
             SELECT tipo, valor FROM movimentos_investimento
-            WHERE substr(data, 1, 7) = ?
+            WHERE {mes_col} = ?
             """
             ),
             (mes,),

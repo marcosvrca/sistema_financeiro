@@ -29,6 +29,7 @@ from financeiro.db import (
     listar_lancamentos_manuais,
     listar_movimentos,
     listar_orcamento_mes,
+    recategorizar_movimentos,
     resumo_mensal,
     resumo_por_categoria,
     atualizar_conta_fixa,
@@ -39,7 +40,12 @@ from financeiro.db import (
     ultimo_saldo,
 )
 from financeiro.ui_tabs import tab_config, tab_dividas, tab_investimentos, tab_metas, tab_planejamento, tab_reserva
-from financeiro.parser import CATEGORIAS_SUGERIDAS, categoria_por_historico, parse_extrato_texto
+from financeiro.parser import (
+    CATEGORIAS_SUGERIDAS,
+    categoria_por_historico,
+    detectar_banco_extrato,
+    parse_extrato_texto,
+)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -148,122 +154,90 @@ def _filtro_periodo() -> tuple[date, date]:
     return di, df
 
 
-def _form_lancamento_rapido() -> None:
-    st.subheader("Novo lançamento")
-    with st.form("lanc_dashboard", clear_on_submit=True):
-        d = st.date_input("Data", value=date.today(), key="dash_lanc_data")
-        desc = st.text_input("Descrição", placeholder="Ex.: Mercado, Salário")
-        val = st.text_input("Valor (R$)", placeholder="150,00")
-        tipo = st.radio("Tipo", ["entrada", "saida"], horizontal=True, key="dash_lanc_tipo")
-        cat = st.selectbox("Categoria", CATEGORIAS_SUGERIDAS, key="dash_lanc_cat")
-        if st.form_submit_button("Salvar no banco", type="primary", use_container_width=True):
-            v = _parse_valor(val)
-            if not desc or v is None:
-                st.error("Preencha descrição e valor.")
-            else:
-                inserir_lancamento_manual(
-                    DB_PATH, data_mov=d, descricao=desc, valor=v, tipo=tipo, categoria=cat
-                )
-                st.success("Lançamento salvo.")
-                st.rerun()
-
-
 def _tab_dashboard(di: date, df: date) -> None:
-    col_lanc, col_dash = st.columns([1, 2.2])
-    with col_lanc:
-        _form_lancamento_rapido()
-        st.divider()
-        recentes = listar_lancamentos_manuais(di, df)[:6]
-        if recentes:
-            st.caption("Últimos lançamentos manuais")
-            for r in recentes:
-                s = "+" if r["tipo"] == "entrada" else "−"
-                st.write(f"{r['data']} · {s} {_fmt_br(_parse_valor(r['valor']))} · {r['descricao']}")
+    ind = calcular_indicadores(di, df)
+    saldo_banco, origem_saldo = saldo_disponivel(DB_PATH)
+    previsto_fixas = total_contas_fixas_previsto()
 
-    with col_dash:
-        ind = calcular_indicadores(di, df)
-        saldo_banco, origem_saldo = saldo_disponivel(DB_PATH)
-        previsto_fixas = total_contas_fixas_previsto()
+    st.subheader("Indicadores do período")
+    r1 = st.columns(4)
+    r1[0].metric("Entradas (créditos)", _fmt_br(ind.total_creditos))
+    r1[1].metric("Saídas (débitos)", _fmt_br(ind.total_debitos))
+    r1[2].metric("Resultado líquido", _fmt_br(ind.saldo_liquido))
+    r1[3].metric(
+        "Saldo disponível",
+        _fmt_br(saldo_banco),
+        help="Coluna saldo do extrato ou, se indisponível (ex.: Nubank CSV), entradas − saídas.",
+    )
 
-        st.subheader("Indicadores do período")
-        r1 = st.columns(4)
-        r1[0].metric("Entradas (créditos)", _fmt_br(ind.total_creditos))
-        r1[1].metric("Saídas (débitos)", _fmt_br(ind.total_debitos))
-        r1[2].metric("Resultado líquido", _fmt_br(ind.saldo_liquido))
-        r1[3].metric(
-            "Saldo disponível",
-            _fmt_br(saldo_banco),
-            help="Coluna saldo do extrato ou, se indisponível (ex.: Nubank CSV), entradas − saídas.",
+    r2 = st.columns(4)
+    r2[0].metric("Gastos fixos (estim.)", _fmt_br(ind.total_fixas))
+    r2[1].metric("Gastos variáveis", _fmt_br(ind.total_variaveis))
+    r2[2].metric(
+        "Contas fixas cadastradas / mês",
+        _fmt_br(previsto_fixas),
+        help="Soma dos valores das contas fixas ativas no cadastro",
+    )
+    r2[3].metric("Ticket médio (débito)", _fmt_br(ind.ticket_medio_debito))
+
+    r3 = st.columns(4)
+    if ind.pct_fixas is not None:
+        r3[0].metric("% fixas nos débitos", f"{ind.pct_fixas:.1f}%")
+        r3[1].metric("% variáveis nos débitos", f"{ind.pct_variaveis:.1f}%")
+    r3[2].metric("Maior débito", _fmt_br(ind.maior_debito))
+    r3[3].metric("Média diária de gastos", _fmt_br(ind.media_diaria_gastos))
+
+    plan = resumo_salario_contas_fixas(DB_PATH)
+    if plan["salario_mensal"] is not None or plan["total_contas_fixas"] > 0:
+        st.caption("Salário x contas fixas (mensal)")
+        rf = st.columns(4)
+        rf[0].metric(
+            "Salário fixo",
+            _fmt_br(plan["salario_mensal"]) if plan["salario_mensal"] is not None else "—",
+        )
+        rf[1].metric("Contas fixas (prev.)", _fmt_br(plan["total_contas_fixas"]))
+        if plan["salario_mensal"] is None:
+            rf[2].metric("Sobra / falta", "—")
+        elif plan["sobra"] is not None:
+            rf[2].metric("Sobra estimada", _fmt_br(plan["sobra"]))
+        else:
+            rf[2].metric("Falta no mês", _fmt_br(plan["falta"]))
+        rf[3].metric(
+            "% do salário",
+            f"{plan['pct_comprometido']:.1f}%" if plan["pct_comprometido"] is not None else "—",
         )
 
-        r2 = st.columns(4)
-        r2[0].metric("Gastos fixos (estim.)", _fmt_br(ind.total_fixas))
-        r2[1].metric("Gastos variáveis", _fmt_br(ind.total_variaveis))
-        r2[2].metric(
-            "Contas fixas cadastradas / mês",
-            _fmt_br(previsto_fixas),
-            help="Soma dos valores das contas fixas ativas no cadastro",
+    if ind.total_manuais_entrada or ind.total_manuais_saida:
+        st.caption(
+            f"Lançamentos manuais no período: entradas {_fmt_br(ind.total_manuais_entrada)} · "
+            f"saídas {_fmt_br(ind.total_manuais_saida)}"
         )
-        r2[3].metric("Ticket médio (débito)", _fmt_br(ind.ticket_medio_debito))
 
-        r3 = st.columns(4)
-        if ind.pct_fixas is not None:
-            r3[0].metric("% fixas nos débitos", f"{ind.pct_fixas:.1f}%")
-            r3[1].metric("% variáveis nos débitos", f"{ind.pct_variaveis:.1f}%")
-        r3[2].metric("Maior débito", _fmt_br(ind.maior_debito))
-        r3[3].metric("Média diária de gastos", _fmt_br(ind.media_diaria_gastos))
+    mensal = resumo_mensal(di, df)
+    if mensal:
+        st.subheader("Evolução mensal")
+        df_chart = pd.DataFrame(
+            {
+                "Mês": [m.mes for m in mensal],
+                "Entradas": [float(m.creditos) for m in mensal],
+                "Saídas": [float(m.debitos) for m in mensal],
+                "Líquido": [float(m.liquido) for m in mensal],
+            }
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            st.bar_chart(df_chart.set_index("Mês")[["Entradas", "Saídas"]])
+        with c2:
+            st.line_chart(df_chart.set_index("Mês")[["Líquido"]])
 
-        plan = resumo_salario_contas_fixas(DB_PATH)
-        if plan["salario_mensal"] is not None or plan["total_contas_fixas"] > 0:
-            st.caption("Salário x contas fixas (mensal)")
-            rf = st.columns(4)
-            rf[0].metric(
-                "Salário fixo",
-                _fmt_br(plan["salario_mensal"]) if plan["salario_mensal"] is not None else "—",
-            )
-            rf[1].metric("Contas fixas (prev.)", _fmt_br(plan["total_contas_fixas"]))
-            if plan["salario_mensal"] is None:
-                rf[2].metric("Sobra / falta", "—")
-            elif plan["sobra"] is not None:
-                rf[2].metric("Sobra estimada", _fmt_br(plan["sobra"]))
-            else:
-                rf[2].metric("Falta no mês", _fmt_br(plan["falta"]))
-            rf[3].metric(
-                "% do salário",
-                f"{plan['pct_comprometido']:.1f}%" if plan["pct_comprometido"] is not None else "—",
-            )
-
-        if ind.total_manuais_entrada or ind.total_manuais_saida:
-            st.caption(
-                f"Lançamentos manuais no período: entradas {_fmt_br(ind.total_manuais_entrada)} · "
-                f"saídas {_fmt_br(ind.total_manuais_saida)}"
-            )
-
-        mensal = resumo_mensal(di, df)
-        if mensal:
-            st.subheader("Evolução mensal")
-            df_chart = pd.DataFrame(
-                {
-                    "Mês": [m.mes for m in mensal],
-                    "Entradas": [float(m.creditos) for m in mensal],
-                    "Saídas": [float(m.debitos) for m in mensal],
-                    "Líquido": [float(m.liquido) for m in mensal],
-                }
-            )
-            c1, c2 = st.columns(2)
-            with c1:
-                st.bar_chart(df_chart.set_index("Mês")[["Entradas", "Saídas"]])
-            with c2:
-                st.line_chart(df_chart.set_index("Mês")[["Líquido"]])
-
-        res = resumo_por_categoria(di, df)
-        if res:
-            st.subheader("Distribuição por categoria (saídas)")
-            top = sorted(res, key=lambda x: x[2], reverse=True)[:10]
-            df_cat = pd.DataFrame(
-                {"Categoria": [c for c, _, _ in top], "Débito": [float(d) for _, _, d in top]}
-            )
-            st.bar_chart(df_cat.set_index("Categoria"))
+    res = resumo_por_categoria(di, df)
+    if res:
+        st.subheader("Distribuição por categoria (saídas)")
+        top = sorted(res, key=lambda x: x[2], reverse=True)[:10]
+        df_cat = pd.DataFrame(
+            {"Categoria": [c for c, _, _ in top], "Débito": [float(d) for _, _, d in top]}
+        )
+        st.bar_chart(df_cat.set_index("Categoria"))
 
 
 def _tab_importar() -> None:
@@ -279,8 +253,13 @@ def _tab_importar() -> None:
         if not linhas:
             st.warning("Nenhuma linha com data (dd/mm/aaaa) foi encontrada.")
         else:
-            ins, dup, _ = inserir_movimentos(DB_PATH, linhas, categoria_por_historico)
-            st.success(f"{len(linhas)} linhas lidas; {ins} novas gravadas; {dup} duplicadas ignoradas.")
+            banco = detectar_banco_extrato(texto)
+            ins, dup, _ = inserir_movimentos(DB_PATH, linhas, categoria_por_historico, banco=banco)
+            recategorizar_movimentos(DB_PATH)
+            st.success(
+                f"{len(linhas)} linhas lidas; {ins} novas gravadas; {dup} duplicadas ignoradas."
+                + (f" Banco: {banco}." if banco else "")
+            )
 
 
 def _tab_movimentos(di: date, df: date) -> None:

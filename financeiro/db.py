@@ -805,9 +805,10 @@ def atualizar_lancamento_manual(
         return bool(cur.rowcount)
 
 
-def excluir_lancamento_manual(db_path: Path | str | None = None, lanc_id: int = 0) -> None:
+def excluir_lancamento_manual(db_path: Path | str | None = None, lanc_id: int = 0) -> bool:
     with get_conn(db_path) as conn:
-        conn.execute(q("DELETE FROM lancamentos_manuais WHERE id = ?"), (lanc_id,))
+        cur = conn.execute(q("DELETE FROM lancamentos_manuais WHERE id = ?"), (lanc_id,))
+        return bool(cur.rowcount)
 
 
 def salvar_orcamento(

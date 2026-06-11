@@ -551,6 +551,9 @@
         <button type="button" class="nav-link active" data-tab="inicio">
           <i class="bi bi-grid-1x2-fill"></i> Dashboard
         </button>
+        <button type="button" class="nav-link" data-tab="lanc">
+          <i class="bi bi-plus-circle"></i> Lançamentos
+        </button>
         <button type="button" class="nav-link" data-tab="mov">
           <i class="bi bi-arrow-left-right"></i> Movimentos
         </button>
@@ -649,45 +652,8 @@
           </div>
         </div>
 
-        <div class="row g-4">
-          <div class="col-lg-4 col-xl-3">
-            <div class="card-premium" id="lanc-card">
-              <div class="card-title"><i class="bi bi-plus-circle"></i> Novo lançamento</div>
-              <p class="text-secondary small mb-3">Registre entrada ou saída — salvo no banco na hora.</p>
-              <div class="tipo-btns mb-3">
-                <button type="button" id="btn-entrada" class="sel-entrada"><i class="bi bi-arrow-down-circle me-1"></i> Entrada</button>
-                <button type="button" id="btn-saida">Saída <i class="bi bi-arrow-up-circle ms-1"></i></button>
-              </div>
-              <div class="mb-2">
-                <label class="form-label" for="l-data">Data</label>
-                <input type="date" class="form-control" id="l-data" />
-              </div>
-              <div class="mb-2">
-                <label class="form-label" for="l-desc">Descrição</label>
-                <input type="text" class="form-control" id="l-desc" placeholder="Ex.: Mercado, Salário" />
-              </div>
-              <div class="mb-2">
-                <label class="form-label" for="l-valor">Valor (R$)</label>
-                <input type="text" class="form-control" id="l-valor" placeholder="150,00" inputmode="decimal" />
-              </div>
-              <div class="mb-3">
-                <label class="form-label" for="l-cat">Categoria</label>
-                <select class="form-select" id="l-cat"></select>
-              </div>
-              <button type="button" class="btn btn-gold w-100" id="btn-salvar-lanc">
-                <i class="bi bi-check2-circle me-1"></i> Salvar lançamento
-              </button>
-              <p class="msg" id="lanc-msg"></p>
-              <div class="recentes">
-                <div class="form-label mb-2">Últimos lançamentos</div>
-                <ul id="lista-recentes"></ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-8 col-xl-9">
-            <div class="row g-3 mb-4" id="metrics">
-              <div class="col-6 col-md-3">
+        <div class="row g-3 mb-4" id="metrics">
+          <div class="col-6 col-md-3">
                 <div class="metric-card ok">
                   <i class="bi bi-graph-up-arrow metric-icon"></i>
                   <div class="metric-label">Entradas</div>
@@ -801,9 +767,66 @@
                   <i class="bi bi-arrow-clockwise me-1"></i> Atualizar categorias
                 </button>
               </div>
+              <p class="msg mb-2" id="recat-msg"></p>
               <div class="table-responsive">
                 <table class="table table-premium table-hover mb-0" id="tbl-cat">
                   <thead><tr><th>Categoria</th><th class="num">Entrada</th><th class="num">Saída</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+      </section>
+
+      <!-- LANÇAMENTOS -->
+      <section id="panel-lanc" class="panel">
+        <div class="page-header">
+          <h2>Lançamentos</h2>
+          <p class="lead">Registre entradas e saídas manuais — salvo no banco na hora.</p>
+        </div>
+        <div class="row g-4">
+          <div class="col-lg-4 col-xl-3">
+            <div class="card-premium" id="lanc-card">
+              <div class="card-title"><i class="bi bi-plus-circle"></i> Novo lançamento</div>
+              <p class="text-secondary small mb-3">Use para registrar movimentos que ainda não aparecem no extrato.</p>
+              <div class="tipo-btns mb-3">
+                <button type="button" id="btn-entrada" class="sel-entrada"><i class="bi bi-arrow-down-circle me-1"></i> Entrada</button>
+                <button type="button" id="btn-saida">Saída <i class="bi bi-arrow-up-circle ms-1"></i></button>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="l-data">Data</label>
+                <input type="date" class="form-control" id="l-data" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="l-desc">Descrição</label>
+                <input type="text" class="form-control" id="l-desc" placeholder="Ex.: Mercado, Salário" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="l-valor">Valor (R$)</label>
+                <input type="text" class="form-control" id="l-valor" placeholder="150,00" inputmode="decimal" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="l-cat">Categoria</label>
+                <select class="form-select" id="l-cat"></select>
+              </div>
+              <button type="button" class="btn btn-gold w-100" id="btn-salvar-lanc">
+                <i class="bi bi-check2-circle me-1"></i> Salvar lançamento
+              </button>
+              <p class="msg" id="lanc-msg"></p>
+            </div>
+          </div>
+          <div class="col-lg-8 col-xl-9">
+            <div class="card-premium">
+              <div class="card-title"><i class="bi bi-journal-check"></i> Lançamentos do período</div>
+              <p class="text-secondary small mb-3">Lista respeita o período definido no Dashboard.</p>
+              <div class="table-responsive">
+                <table class="table table-premium table-hover mb-0" id="tbl-lanc">
+                  <thead>
+                    <tr>
+                      <th>Data</th><th>Descrição</th>
+                      <th class="num">Entrada</th><th class="num">Saída</th>
+                      <th>Categoria</th><th></th>
+                    </tr>
+                  </thead>
                   <tbody></tbody>
                 </table>
               </div>
@@ -1582,6 +1605,16 @@
       return filtrosQuery();
     }
 
+    function periodoQueryLancamentos() {
+      const de = document.getElementById("f-de").value;
+      const ate = document.getElementById("f-ate").value;
+      const q = new URLSearchParams();
+      if (de) q.set("de", de);
+      if (ate) q.set("ate", ate);
+      const s = q.toString();
+      return s ? "?" + s : "";
+    }
+
     function filtrosQuery() {
       const de = document.getElementById("f-de").value;
       const ate = document.getElementById("f-ate").value;
@@ -1892,18 +1925,54 @@
       });
     }
 
-    async function carregarRecentes() {
-      const rows = await api("/api/lancamentos/recentes?limite=8");
-      const ul = document.getElementById("lista-recentes");
+    function bindAcoesLancamento(tb) {
+      tb.querySelectorAll("[data-edit-id]").forEach((btn) => {
+        btn.onclick = () => {
+          abrirEditarLancamento({
+            manual_id: btn.dataset.editId,
+            data: btn.dataset.editData,
+            descricao: decodeURIComponent(btn.dataset.editDesc),
+            credito: btn.dataset.editTipo === "entrada" ? Number(btn.dataset.editValor) : null,
+            debito: btn.dataset.editTipo === "saida" ? Number(btn.dataset.editValor) : null,
+            tipo_lanc: btn.dataset.editTipo,
+            categoria: decodeURIComponent(btn.dataset.editCat),
+          });
+        };
+      });
+      tb.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.onclick = async () => {
+          if (!confirm("Excluir este lançamento?")) return;
+          await api("/api/lancamentos/" + btn.dataset.del, { method: "DELETE" });
+          await refreshAll();
+        };
+      });
+    }
+
+    async function carregarLancamentosPainel() {
+      const rows = await api("/api/lancamentos" + periodoQueryLancamentos());
+      const tb = document.querySelector("#tbl-lanc tbody");
+      if (!tb) return;
       if (!rows.length) {
-        ul.innerHTML = "<li class='text-secondary'>Nenhum lançamento ainda</li>";
+        tb.innerHTML = "<tr><td colspan='6' class='text-secondary'>Nenhum lançamento manual no período</td></tr>";
         return;
       }
-      ul.innerHTML = rows.map((r) => {
-        const cls = r.tipo === "entrada" ? "ent" : "sai";
-        const s = r.tipo === "entrada" ? "+" : "−";
-        return `<li><span>${r.data} · ${r.descricao}</span><span class="${cls}">${s} ${fmtBr(r.valor)}</span></li>`;
+      tb.innerHTML = rows.map((r) => {
+        const acoes = `<button type="button" class="link link-edit" data-edit-id="${r.id}"
+              data-edit-data="${r.data}" data-edit-desc="${encodeURIComponent(r.descricao)}"
+              data-edit-valor="${r.valor}"
+              data-edit-tipo="${r.tipo}" data-edit-cat="${encodeURIComponent(r.categoria)}">
+              <i class="bi bi-pencil"></i> editar</button>
+            <button type="button" class="link" data-del="${r.id}"><i class="bi bi-trash"></i> excluir</button>`;
+        const ent = r.tipo === "entrada" ? fmtBr(r.valor) : "";
+        const sai = r.tipo === "saida" ? fmtBr(r.valor) : "";
+        return `<tr>
+          <td>${r.data}</td><td>${r.descricao}</td>
+          <td class="num ent">${ent}</td>
+          <td class="num sai">${sai}</td>
+          <td>${r.categoria}</td><td class="acoes-cell">${acoes}</td>
+        </tr>`;
       }).join("");
+      bindAcoesLancamento(tb);
     }
 
     async function carregarMovimentos() {
@@ -1926,26 +1995,7 @@
           <td>${r.categoria}</td><td>${orig}</td><td class="acoes-cell">${acoes}</td>
         </tr>`;
       }).join("");
-      tb.querySelectorAll("[data-edit-id]").forEach((btn) => {
-        btn.onclick = () => {
-          abrirEditarLancamento({
-            manual_id: btn.dataset.editId,
-            data: btn.dataset.editData,
-            descricao: decodeURIComponent(btn.dataset.editDesc),
-            credito: btn.dataset.editTipo === "entrada" ? Number(btn.dataset.editValor) : null,
-            debito: btn.dataset.editTipo === "saida" ? Number(btn.dataset.editValor) : null,
-            tipo_lanc: btn.dataset.editTipo,
-            categoria: decodeURIComponent(btn.dataset.editCat),
-          });
-        };
-      });
-      tb.querySelectorAll("[data-del]").forEach((btn) => {
-        btn.onclick = async () => {
-          if (!confirm("Excluir este lançamento?")) return;
-          await api("/api/lancamentos/" + btn.dataset.del, { method: "DELETE" });
-          await refreshAll();
-        };
-      });
+      bindAcoesLancamento(tb);
     }
 
     async function carregarExtratos() {
@@ -2534,7 +2584,7 @@
     async function refreshAll() {
       await Promise.all([
         refreshDashboard(),
-        carregarRecentes(),
+        carregarLancamentosPainel(),
         carregarMovimentos(),
         carregarExtratos(),
         carregarFixas(),
@@ -3012,6 +3062,8 @@
       document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
       document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
       closeMobileSidebar();
+      if (btn.dataset.tab === "lanc") carregarLancamentosPainel();
+      if (btn.dataset.tab === "mov") carregarMovimentos();
       if (btn.dataset.tab === "extratos") carregarExtratos();
       if (btn.dataset.tab === "fixas") carregarPlanejamentoFixas();
       if (btn.dataset.tab === "planej") carregarPlanejamento();
@@ -3030,19 +3082,16 @@
     document.getElementById("sidebar-overlay").onclick = closeMobileSidebar;
 
     document.getElementById("btn-recat").onclick = async () => {
-      const msg = document.getElementById("import-msg");
+      const msg = document.getElementById("recat-msg");
+      msg.className = "msg";
       try {
         const r = await api("/api/recategorizar", { method: "POST" });
-        if (msg) {
-          msg.textContent = r.atualizados + " movimentos recategorizados.";
-          msg.className = "msg ok";
-        }
+        msg.textContent = r.atualizados + " movimentos recategorizados.";
+        msg.className = "msg ok";
         await refreshAll();
       } catch (e) {
-        if (msg) {
-          msg.textContent = e.message;
-          msg.className = "msg err";
-        }
+        msg.textContent = e.message;
+        msg.className = "msg err";
       }
     };
 
@@ -3064,7 +3113,6 @@
         document.getElementById("cc-comp-fatura").value = mesAtual();
         setTipo("saida");
         setTipoEdicao("saida");
-        await api("/api/recategorizar", { method: "POST" });
         await refreshAll();
       } catch (e) {
         badge.textContent = "API offline";
