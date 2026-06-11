@@ -6,7 +6,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from financeiro.config import SQLITE_PATH, using_postgres
+from financeiro.config import SQLITE_PATH, user_postgres_schema, user_sqlite_path, using_postgres
+from financeiro.context import current_user_id
 
 
 def q(sql: str) -> str:
@@ -36,10 +37,20 @@ def get_conn(db_path: Path | str | None = None) -> Iterator[Any]:
         from financeiro.config import database_url
 
         with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+            uid = current_user_id.get()
+            if uid:
+                schema = user_postgres_schema(uid)
+                conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+                conn.execute(f'SET search_path TO "{schema}", public')
             yield conn
             conn.commit()
     else:
-        path = Path(db_path) if db_path else SQLITE_PATH
+        if db_path is not None:
+            path = Path(db_path)
+        elif current_user_id.get():
+            path = user_sqlite_path(current_user_id.get())
+        else:
+            path = SQLITE_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(path))
         conn.row_factory = sqlite3.Row

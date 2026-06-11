@@ -254,6 +254,18 @@ def _skip_schema_stmt(stmt: str) -> bool:
     return "idx_movimentos_importacao" in stmt
 
 
+def init_all_user_databases() -> None:
+    from financeiro.auth import USERS_BY_ID
+    from financeiro.context import current_user_id
+
+    for user_id in USERS_BY_ID:
+        token = current_user_id.set(user_id)
+        try:
+            init_db()
+        finally:
+            current_user_id.reset(token)
+
+
 def init_db(db_path: Path | str | None = None) -> None:
     schema = SCHEMA_POSTGRES if using_postgres() else SCHEMA_SQLITE
     with get_conn(db_path) as conn:

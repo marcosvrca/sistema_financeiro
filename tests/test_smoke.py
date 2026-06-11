@@ -30,14 +30,25 @@ class SmokeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls._tmpdir = tempfile.TemporaryDirectory()
         cls._db = Path(cls._tmpdir.name) / "test.db"
+        cls._users_dir = Path(cls._tmpdir.name) / "users"
         cls._orig_sqlite = cfg.SQLITE_PATH
+        cls._orig_users_dir = cfg.USERS_DATA_DIR
         cfg.SQLITE_PATH = cls._db
+        cfg.USERS_DATA_DIR = cls._users_dir
         init_db(cls._db)
+        cls._users_dir.mkdir(parents=True, exist_ok=True)
+        init_db(cls._users_dir / "vitoria.db")
         cls.client = TestClient(api.app)
+        login = cls.client.post(
+            "/api/auth/login",
+            json={"email": "marcosviniciusrdca2@gmail.com", "password": "250922"},
+        )
+        cls._auth = {"Authorization": "Bearer " + login.json()["token"]}
 
     @classmethod
     def tearDownClass(cls) -> None:
         cfg.SQLITE_PATH = cls._orig_sqlite
+        cfg.USERS_DATA_DIR = cls._orig_users_dir
         cls._tmpdir.cleanup()
 
     def test_health_ok(self) -> None:
@@ -50,29 +61,43 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("text/html", r.headers.get("content-type", ""))
 
-    def test_categorias(self) -> None:
+    def test_login_invalido(self) -> None:
+        r = self.client.post(
+            "/api/auth/login",
+            json={"email": "marcosviniciusrdca2@gmail.com", "password": "errada"},
+        )
+        self.assertEqual(r.status_code, 401)
+
+    def test_api_sem_token_retorna_401(self) -> None:
         r = self.client.get("/api/categorias")
+        self.assertEqual(r.status_code, 401)
+
+    def test_categorias(self) -> None:
+        r = self.client.get("/api/categorias", headers=self._auth)
         self.assertEqual(r.status_code, 200)
         self.assertIsInstance(r.json(), list)
         self.assertGreater(len(r.json()), 0)
 
     def test_indicadores_periodo(self) -> None:
-        r = self.client.get("/api/indicadores?de=2026-01-01&ate=2026-12-31")
+        r = self.client.get(
+            "/api/indicadores?de=2026-01-01&ate=2026-12-31",
+            headers=self._auth,
+        )
         self.assertEqual(r.status_code, 200)
         body = r.json()
         self.assertIn("entradas", body)
         self.assertIn("saidas", body)
 
     def test_data_invalida_retorna_400(self) -> None:
-        r = self.client.get("/api/indicadores?de=invalido")
+        r = self.client.get("/api/indicadores?de=invalido", headers=self._auth)
         self.assertEqual(r.status_code, 400)
 
     def test_mes_invalido_retorna_400(self) -> None:
-        r = self.client.get("/api/calendario?mes=2026")
+        r = self.client.get("/api/calendario?mes=2026", headers=self._auth)
         self.assertEqual(r.status_code, 400)
 
     def test_investimentos_resumo(self) -> None:
-        r = self.client.get("/api/investimentos/resumo")
+        r = self.client.get("/api/investimentos/resumo", headers=self._auth)
         self.assertEqual(r.status_code, 200)
         body = r.json()
         self.assertIn("patrimonio_total", body)
@@ -87,15 +112,19 @@ class SmokeTests(unittest.TestCase):
                 "tipo": "saida",
                 "categoria": "Outros",
             },
+            headers=self._auth,
         )
         self.assertEqual(r.status_code, 200)
         lid = r.json()["id"]
-        listed = self.client.get("/api/lancamentos?de=2026-06-01&ate=2026-06-30")
+        listed = self.client.get(
+            "/api/lancamentos?de=2026-06-01&ate=2026-06-30",
+            headers=self._auth,
+        )
         self.assertEqual(listed.status_code, 200)
         self.assertTrue(any(x["id"] == lid for x in listed.json()))
-        deleted = self.client.delete(f"/api/lancamentos/{lid}")
+        deleted = self.client.delete(f"/api/lancamentos/{lid}", headers=self._auth)
         self.assertEqual(deleted.status_code, 200)
-        missing = self.client.delete(f"/api/lancamentos/{lid}")
+        missing = self.client.delete(f"/api/lancamentos/{lid}", headers=self._auth)
         self.assertEqual(missing.status_code, 404)
 
     def test_lancamentos_crud_db(self) -> None:

@@ -12,6 +12,9 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from financeiro.auth import authenticate
+from financeiro.config import user_sqlite_path
+from financeiro.context import current_user_id
 from financeiro.db import (
     atualizar_lancamento_manual,
     calcular_indicadores,
@@ -111,8 +114,49 @@ div[data-testid="stForm"] {
 }
 </style>
 """
-DB_PATH = ROOT / "data" / "financeiro.db"
 EXEMPLO_PATH = ROOT / "data" / "exemplo_extrato.txt"
+
+
+def _db_path() -> Path:
+    uid = st.session_state.get("user_id")
+    return user_sqlite_path(uid) if uid else ROOT / "data" / "financeiro.db"
+
+
+_LOGIN_CSS = """
+<style>
+.login-wrap {
+  max-width: 400px;
+  margin: 4rem auto;
+  padding: 2rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(26, 35, 50, 0.55);
+}
+</style>
+"""
+
+
+def _tela_login() -> bool:
+    """Retorna True quando o usuário está autenticado."""
+    if st.session_state.get("user_id"):
+        return True
+
+    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+    st.markdown("## Finanças Pro")
+    st.caption("Entre com sua conta para acessar seus dados.")
+
+    with st.form("login"):
+        email = st.text_input("E-mail", placeholder="seu@email.com")
+        senha = st.text_input("Senha", type="password")
+        if st.form_submit_button("Entrar", type="primary"):
+            user = authenticate(email, senha)
+            if not user:
+                st.error("E-mail ou senha incorretos.")
+            else:
+                st.session_state.user_id = user["id"]
+                st.session_state.user_nome = user["nome"]
+                st.rerun()
+    return False
 
 
 def _fmt_br(val: Decimal | None) -> str:
@@ -155,8 +199,9 @@ def _filtro_periodo() -> tuple[date, date]:
 
 
 def _tab_dashboard(di: date, df: date) -> None:
-    ind = calcular_indicadores(di, df)
-    saldo_banco, origem_saldo = saldo_disponivel(DB_PATH)
+    db = _db_path()
+    ind = calcular_indicadores(di, df, db)
+    saldo_banco, origem_saldo = saldo_disponivel(db)
     previsto_fixas = total_contas_fixas_previsto()
 
     st.subheader("Indicadores do período")
@@ -187,7 +232,7 @@ def _tab_dashboard(di: date, df: date) -> None:
     r3[2].metric("Maior débito", _fmt_br(ind.maior_debito))
     r3[3].metric("Média diária de gastos", _fmt_br(ind.media_diaria_gastos))
 
-    plan = resumo_salario_contas_fixas(DB_PATH)
+    plan = resumo_salario_contas_fixas(db)
     if plan["salario_mensal"] is not None or plan["total_contas_fixas"] > 0:
         st.caption("Salário x contas fixas (mensal)")
         rf = st.columns(4)
@@ -254,8 +299,8 @@ def _tab_importar() -> None:
             st.warning("Nenhuma linha com data (dd/mm/aaaa) foi encontrada.")
         else:
             banco = detectar_banco_extrato(texto)
-            ins, dup, _ = inserir_movimentos(DB_PATH, linhas, categoria_por_historico, banco=banco)
-            recategorizar_movimentos(DB_PATH)
+            ins, dup, _ = inserir_movimentos(_db_path(), linhas, categoria_por_historico, banco=banco)
+            recategorizar_movimentos(_db_path())
             st.success(
                 f"{len(linhas)} linhas lidas; {ins} novas gravadas; {dup} duplicadas ignoradas."
                 + (f" Banco: {banco}." if banco else "")
@@ -307,7 +352,7 @@ def _tab_resumo(di: date, df: date) -> None:
 
 
 def _render_planejamento_salario() -> None:
-    res = resumo_salario_contas_fixas(DB_PATH)
+    res = resumo_salario_contas_fixas(_db_path())
     with st.form("salario_mensal"):
         st.subheader("Salário fixo mensal")
         sal_txt = st.text_input(
@@ -320,7 +365,7 @@ def _render_planejamento_salario() -> None:
             if v is None or v <= 0:
                 st.error("Informe um salário válido maior que zero.")
             else:
-                salvar_salario_mensal(v, DB_PATH)
+                salvar_salario_mensal(v, _db_path())
                 st.success("Salário salvo.")
                 st.rerun()
 
@@ -365,7 +410,7 @@ def _tab_contas_fixas() -> None:
             if not nome or v is None:
                 st.error("Informe nome e valor válido.")
             else:
-                salvar_conta_fixa(DB_PATH, nome, v, cat, int(dia), hist or None, obs or None)
+                salvar_conta_fixa(_db_path(), nome, v, cat, int(dia), hist or None, obs or None)
                 st.success("Conta fixa salva.")
                 st.rerun()
 
@@ -375,7 +420,7 @@ def _tab_contas_fixas() -> None:
     edit_cx = st.session_state.edit_conta_fixa_id
     if edit_cx is not None:
         alvo = next(
-            (r for r in listar_contas_fixas(DB_PATH, apenas_ativas=False) if r["id"] == edit_cx and r["ativo"]),
+            (r for r in listar_contas_fixas(_db_path(), apenas_ativas=False) if r["id"] == edit_cx and r["ativo"]),
             None,
         )
         if alvo is None:
@@ -421,7 +466,7 @@ def _tab_contas_fixas() -> None:
                 if not nome_e or v is None:
                     st.error("Informe nome e valor válido.")
                 elif atualizar_conta_fixa(
-                    DB_PATH,
+                    _db_path(),
                     edit_cx,
                     nome_e,
                     v,
@@ -437,11 +482,11 @@ def _tab_contas_fixas() -> None:
                     st.error("Conta fixa não encontrada.")
         st.divider()
 
-    rows = listar_contas_fixas(DB_PATH, apenas_ativas=False)
+    rows = listar_contas_fixas(_db_path(), apenas_ativas=False)
     st.subheader("Contas fixas cadastradas")
     if not rows:
         st.info("Nenhuma conta fixa cadastrada.")
-        st.metric("Total previsto (contas ativas)", _fmt_br(total_contas_fixas_previsto(DB_PATH)))
+        st.metric("Total previsto (contas ativas)", _fmt_br(total_contas_fixas_previsto(_db_path())))
         return
     for r in rows:
         cols = st.columns([3, 1, 1, 1])
@@ -457,9 +502,9 @@ def _tab_contas_fixas() -> None:
                 st.session_state.edit_conta_fixa_id = r["id"]
                 st.rerun()
             if cols[3].button("Desativar", key=f"off_{r['id']}"):
-                desativar_conta_fixa(DB_PATH, r["id"])
+                desativar_conta_fixa(_db_path(), r["id"])
                 st.rerun()
-    res = resumo_salario_contas_fixas(DB_PATH)
+    res = resumo_salario_contas_fixas(_db_path())
     st.metric("Total previsto (contas ativas)", _fmt_br(res["total_contas_fixas"]))
     if res["salario_mensal"] is not None:
         if res["sobra"] is not None:
@@ -481,7 +526,7 @@ def _tab_manuais(di: date, df: date) -> None:
             if not desc or v is None:
                 st.error("Preencha descrição e valor.")
             else:
-                inserir_lancamento_manual(DB_PATH, d, desc, v, tipo, cat)
+                inserir_lancamento_manual(_db_path(), d, desc, v, tipo, cat)
                 st.success("Lançamento incluído.")
                 st.rerun()
 
@@ -529,7 +574,7 @@ def _tab_manuais(di: date, df: date) -> None:
                 if not desc or v is None:
                     st.error("Preencha descrição e valor.")
                 elif atualizar_lancamento_manual(
-                    DB_PATH, edit_id, d, desc, v, tipo, cat
+                    _db_path(), edit_id, d, desc, v, tipo, cat
                 ):
                     st.session_state.edit_lanc_id = None
                     st.success("Lançamento atualizado.")
@@ -551,13 +596,13 @@ def _tab_manuais(di: date, df: date) -> None:
             st.session_state.edit_lanc_id = r["id"]
             st.rerun()
         if c4.button("Excluir", key=f"del_man_{r['id']}"):
-            excluir_lancamento_manual(DB_PATH, r["id"])
+            excluir_lancamento_manual(_db_path(), r["id"])
             st.rerun()
 
 
 def _tab_extratos() -> None:
     st.caption("Cada importação de extrato fica registrada aqui. Excluir remove todos os movimentos daquele import.")
-    rows = listar_importacoes_extrato(DB_PATH)
+    rows = listar_importacoes_extrato(_db_path())
     if not rows:
         st.info("Nenhum extrato importado ainda.")
         return
@@ -578,7 +623,7 @@ def _tab_extratos() -> None:
         )
         key = f"del_imp_{r['id']}"
         if cols[2].button("Excluir extrato", key=key, type="secondary"):
-            n = excluir_importacao_extrato(DB_PATH, r["id"])
+            n = excluir_importacao_extrato(_db_path(), r["id"])
             st.success(f"Extrato excluído ({n} movimentos removidos).")
             st.rerun()
 
@@ -594,11 +639,11 @@ def _tab_orcamento() -> None:
             if v is None:
                 st.error("Valor inválido.")
             else:
-                salvar_orcamento(DB_PATH, mes, cat, v)
+                salvar_orcamento(_db_path(), mes, cat, v)
                 st.success("Orçamento salvo.")
                 st.rerun()
 
-    orc = listar_orcamento_mes(DB_PATH, mes)
+    orc = listar_orcamento_mes(_db_path(), mes)
     if not orc:
         st.info("Sem limites definidos para este mês.")
         return
@@ -637,14 +682,35 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     st.markdown(_PREMIUM_CSS, unsafe_allow_html=True)
+
+    if not _tela_login():
+        return
+
+    uid = st.session_state.user_id
+    ctx = current_user_id.set(uid)
+    try:
+        _run_app()
+    finally:
+        current_user_id.reset(ctx)
+
+
+def _run_app() -> None:
     st.markdown("## Finanças Pro")
     st.caption(
         "Extrato · contas fixas · orçamento · reserva · metas · investimentos · planejamento"
     )
 
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    init_db(DB_PATH)
+    db = _db_path()
+    db.parent.mkdir(parents=True, exist_ok=True)
+    init_db(db)
 
+    nome = st.session_state.get("user_nome", "")
+    st.sidebar.markdown(f"**{nome}**")
+    if st.sidebar.button("Sair"):
+        for key in ("user_id", "user_nome"):
+            st.session_state.pop(key, None)
+        st.rerun()
+    st.sidebar.divider()
     st.sidebar.markdown("### Período de análise")
     di, df = _filtro_periodo()
     st.sidebar.divider()
@@ -688,17 +754,17 @@ def main() -> None:
     with tabs[7]:
         _tab_orcamento()
     with tabs[8]:
-        tab_planejamento(DB_PATH, di, df)
+        tab_planejamento(db, di, df)
     with tabs[9]:
-        tab_reserva(DB_PATH)
+        tab_reserva(db)
     with tabs[10]:
-        tab_metas(DB_PATH)
+        tab_metas(db)
     with tabs[11]:
-        tab_investimentos(DB_PATH)
+        tab_investimentos(db)
     with tabs[12]:
-        tab_dividas(DB_PATH)
+        tab_dividas(db)
     with tabs[13]:
-        tab_config(DB_PATH)
+        tab_config(db)
 
 
 if __name__ == "__main__":

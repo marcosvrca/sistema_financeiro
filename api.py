@@ -9,12 +9,14 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from financeiro.config import SQLITE_PATH, using_postgres
+from financeiro.auth import authenticate, create_access_token, user_from_token
+from financeiro.config import SQLITE_PATH, USERS_DATA_DIR, using_postgres
+from financeiro.context import current_user_id
 from financeiro.db import (
     FiltroVisao,
     _d,
@@ -106,7 +108,7 @@ from financeiro.features import (
     resumo_cartoes_credito,
     salvar_cartao_credito,
 )
-from financeiro.db import salvar_orcamento, obter_salario_mensal
+from financeiro.db import init_all_user_databases, salvar_orcamento, obter_salario_mensal
 
 ROOT = Path(__file__).resolve().parent
 PAINEL = ROOT / "painel.html"
@@ -191,6 +193,11 @@ class ContaFixaIn(BaseModel):
     observacao: str | None = None
 
 
+class LoginIn(BaseModel):
+    email: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=1)
+
+
 class SalarioMensalIn(BaseModel):
     valor: str
 
@@ -211,15 +218,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_PUBLIC_PATHS = {"/", "/api/health", "/api/auth/login"}
+
+
+def _extract_bearer(request: Request) -> str | None:
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return None
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or path in _PUBLIC_PATHS:
+        return await call_next(request)
+    if not path.startswith("/api/"):
+        return await call_next(request)
+
+    token = _extract_bearer(request)
+    if not token:
+        return PlainTextResponse("Não autenticado", status_code=401)
+    user = user_from_token(token)
+    if not user:
+        return PlainTextResponse("Token inválido ou expirado", status_code=401)
+
+    token_ctx = current_user_id.set(user["id"])
+    try:
+        return await call_next(request)
+    finally:
+        current_user_id.reset(token_ctx)
+
 
 @app.on_event("startup")
 def startup() -> None:
     if not using_postgres():
         SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        USERS_DATA_DIR.mkdir(parents=True, exist_ok=True)
     last_err: Exception | None = None
     for attempt in range(8):
         try:
-            init_db()
+            init_all_user_databases()
             return
         except Exception as exc:
             last_err = exc
@@ -235,14 +274,41 @@ def pagina_inicial() -> FileResponse:
     return FileResponse(PAINEL)
 
 
+@app.post("/api/auth/login")
+def login(body: LoginIn) -> dict:
+    user = authenticate(body.email, body.password)
+    if not user:
+        raise HTTPException(401, "E-mail ou senha incorretos.")
+    token = create_access_token(user["id"], body.email.strip().lower())
+    return {
+        "token": token,
+        "user": {"id": user["id"], "nome": user["nome"], "email": body.email.strip().lower()},
+    }
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request) -> dict:
+    token = _extract_bearer(request)
+    if not token:
+        raise HTTPException(401, "Não autenticado")
+    user = user_from_token(token)
+    if not user:
+        raise HTTPException(401, "Token inválido ou expirado")
+    return user
+
+
 @app.get("/api/health")
 def health() -> dict:
     from financeiro.conn import get_conn
 
     banco = "postgresql" if using_postgres() else "sqlite"
     try:
-        with get_conn() as conn:
-            conn.execute("SELECT 1")
+        token_ctx = current_user_id.set("marcos")
+        try:
+            with get_conn() as conn:
+                conn.execute("SELECT 1")
+        finally:
+            current_user_id.reset(token_ctx)
         return {"ok": True, "banco": banco}
     except Exception as exc:
         raise HTTPException(503, f"Banco indisponível: {exc}") from exc
