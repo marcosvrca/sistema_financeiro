@@ -102,6 +102,27 @@ class SmokeTests(unittest.TestCase):
         body = r.json()
         self.assertIn("patrimonio_total", body)
 
+    def test_lancamentos_persistem_apos_novo_request(self) -> None:
+        r = self.client.post(
+            "/api/lancamentos",
+            json={
+                "data": "2026-06-15",
+                "descricao": "Persistencia",
+                "valor": "99,00",
+                "tipo": "entrada",
+                "categoria": "Outros",
+            },
+            headers=self._auth,
+        )
+        self.assertEqual(r.status_code, 200)
+        lid = r.json()["id"]
+        listed = self.client.get(
+            "/api/lancamentos?de=2026-06-01&ate=2026-06-30",
+            headers=self._auth,
+        )
+        self.assertTrue(any(x["id"] == lid for x in listed.json()))
+        self.client.delete(f"/api/lancamentos/{lid}", headers=self._auth)
+
     def test_lancamentos_api(self) -> None:
         r = self.client.post(
             "/api/lancamentos",

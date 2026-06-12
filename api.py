@@ -9,7 +9,9 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from collections.abc import Generator
+
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
@@ -220,7 +222,19 @@ class ContaFixaMesIn(BaseModel):
     observacao: str | None = None
 
 
-app = FastAPI(title="seOrganize", version="2.0")
+def _bind_user_db(request: Request) -> Generator[None, None, None]:
+    """Garante o contexto do usuário na thread que executa a rota (evita perda com thread pool)."""
+    uid = getattr(request.state, "user_id", None)
+    anterior = current_user_id.get()
+    if uid:
+        current_user_id.set(uid)
+    try:
+        yield
+    finally:
+        current_user_id.set(anterior)
+
+
+app = FastAPI(title="seOrganize", version="2.0", dependencies=[Depends(_bind_user_db)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -254,17 +268,15 @@ async def auth_middleware(request: Request, call_next):
     if not validated:
         return PlainTextResponse("Sessão expirada ou inválida", status_code=401)
     payload, user = validated
+    request.state.user_id = user["id"]
+    request.state.auth_payload = payload
 
-    token_ctx = current_user_id.set(user["id"])
-    try:
-        response = await call_next(request)
-        if response.status_code < 400:
-            new_token = refresh_token_activity(payload)
-            if new_token:
-                response.headers["X-Session-Token"] = new_token
-        return response
-    finally:
-        current_user_id.reset(token_ctx)
+    response = await call_next(request)
+    if response.status_code < 400:
+        new_token = refresh_token_activity(payload)
+        if new_token:
+            response.headers["X-Session-Token"] = new_token
+    return response
 
 
 @app.on_event("startup")
@@ -347,7 +359,16 @@ def health() -> dict:
                 conn.execute("SELECT 1")
         finally:
             current_user_id.reset(token_ctx)
-        return {"ok": True, "banco": banco}
+        return {
+            "ok": True,
+            "banco": banco,
+            "persistente": using_postgres(),
+            "aviso": (
+                None
+                if using_postgres()
+                else "SQLite sem volume persistente: configure DATABASE_URL (PostgreSQL) no Railway."
+            ),
+        }
     except Exception as exc:
         raise HTTPException(503, f"Banco indisponível: {exc}") from exc
 

@@ -1830,6 +1830,7 @@
     const API = "";
     const TOKEN_KEY = "financas_token";
     const LOGIN_AT_KEY = "financas_login_at";
+    const PERIODO_KEY = "financas_periodo";
     const INACTIVITY_MS = 15 * 60 * 1000;
     const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
     let idleTimer = null;
@@ -2136,6 +2137,7 @@
       }
       if (de) document.getElementById("f-de").value = de;
       if (ate) document.getElementById("f-ate").value = ate;
+      salvarPeriodoLocal();
       refreshAll();
     }
 
@@ -2223,16 +2225,50 @@
       modalEditarFixa.show();
     }
 
+    function salvarPeriodoLocal() {
+      const de = document.getElementById("f-de").value;
+      const ate = document.getElementById("f-ate").value;
+      if (de && ate) {
+        localStorage.setItem(PERIODO_KEY, JSON.stringify({ de, ate }));
+      }
+    }
+
+    function restaurarPeriodoLocal() {
+      try {
+        const raw = localStorage.getItem(PERIODO_KEY);
+        if (!raw) return false;
+        const p = JSON.parse(raw);
+        if (!p.de || !p.ate) return false;
+        document.getElementById("f-de").value = p.de;
+        document.getElementById("f-ate").value = p.ate;
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function garantirDataNoPeriodo(dataIso) {
+      if (!dataIso) return;
+      const de = document.getElementById("f-de");
+      const ate = document.getElementById("f-ate");
+      if (dataIso < de.value) de.value = dataIso;
+      if (dataIso > ate.value) ate.value = dataIso;
+      salvarPeriodoLocal();
+    }
+
     async function carregarPeriodo() {
       const p = await api("/api/periodo");
       const hoje = new Date().toISOString().slice(0, 10);
-      const ini = p.de || hoje.slice(0, 8) + "01";
       const elDe = document.getElementById("f-de");
       const elAte = document.getElementById("f-ate");
-      elDe.value = ini;
-      elAte.value = p.ate || hoje;
       if (p.de) elDe.dataset.min = p.de;
       if (p.ate) elAte.dataset.max = p.ate;
+      if (!restaurarPeriodoLocal()) {
+        const ini = p.de || hoje.slice(0, 8) + "01";
+        elDe.value = ini;
+        elAte.value = p.ate || hoje;
+        salvarPeriodoLocal();
+      }
       document.getElementById("l-data").value = hoje;
     }
 
@@ -3083,6 +3119,8 @@
     document.getElementById("ed-btn-entrada").onclick = () => setTipoEdicao("entrada");
     document.getElementById("ed-btn-saida").onclick = () => setTipoEdicao("saida");
     document.getElementById("btn-atualizar").onclick = refreshAll;
+    document.getElementById("f-de").addEventListener("change", salvarPeriodoLocal);
+    document.getElementById("f-ate").addEventListener("change", salvarPeriodoLocal);
 
     document.getElementById("f-manuais").onchange = refreshAll;
 
@@ -3150,16 +3188,18 @@
       const msg = document.getElementById("lanc-msg");
       msg.className = "msg";
       try {
+        const dataLanc = document.getElementById("l-data").value;
         await api("/api/lancamentos", {
           method: "POST",
           body: JSON.stringify({
-            data: document.getElementById("l-data").value,
+            data: dataLanc,
             descricao: document.getElementById("l-desc").value,
             valor: document.getElementById("l-valor").value,
             tipo: tipoLanc,
             categoria: document.getElementById("l-cat").value,
           }),
         });
+        garantirDataNoPeriodo(dataLanc);
         msg.textContent = "Lançamento salvo no banco.";
         msg.className = "msg ok";
         document.getElementById("l-desc").value = "";
@@ -3625,8 +3665,20 @@
         const me = await api("/api/auth/me");
         document.getElementById("user-nome").textContent = me.nome;
         const h = await api("/api/health");
-        badge.textContent = "banco: " + h.banco;
+        badge.textContent = h.persistente === false ? "banco: sqlite (volátil)" : "banco: " + h.banco;
         badgeWrap.classList.remove("offline");
+        if (h.aviso) {
+          const alEl = document.getElementById("alertas-dash");
+          if (alEl && !alEl.querySelector(".alerta-persistencia")) {
+            alEl.insertAdjacentHTML(
+              "afterbegin",
+              `<div class="alerta-geral warn alerta-persistencia mb-3">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>${h.aviso}</span>
+              </div>`
+            );
+          }
+        }
         await carregarCategorias();
         await carregarPeriodo();
         await carregarFiltrosBanco();

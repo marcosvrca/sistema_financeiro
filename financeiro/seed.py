@@ -66,6 +66,18 @@ def apply_marcos_seed_if_requested() -> int:
     applied = 0
     try:
         with get_conn() as conn:
+            row_cfg = conn.execute(
+                "SELECT valor FROM public.configuracao WHERE chave = %s",
+                ("seed_marcos_aplicado",),
+            ).fetchone()
+            if row_cfg and row_cfg["valor"] == "1":
+                return 0
+            total_registros = 0
+            for table in TABLES:
+                row = conn.execute(f'SELECT COUNT(*) AS n FROM public."{table}"').fetchone()
+                total_registros += int(row["n"]) if row else 0
+            if total_registros > 0:
+                return 0
             conn.execute("SET session_replication_role = replica")
             for table in TABLES:
                 conn.execute(f'TRUNCATE TABLE public."{table}" RESTART IDENTITY CASCADE')
@@ -93,6 +105,13 @@ def apply_marcos_seed_if_requested() -> int:
                         (seq,),
                     )
             conn.execute("SET session_replication_role = origin")
+            conn.execute(
+                """
+                INSERT INTO public.configuracao (chave, valor)
+                VALUES ('seed_marcos_aplicado', '1')
+                ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor
+                """
+            )
     finally:
         current_user_id.reset(token)
     return applied
