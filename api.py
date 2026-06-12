@@ -259,6 +259,11 @@ def startup() -> None:
     for attempt in range(8):
         try:
             init_all_user_databases()
+            from financeiro.seed import apply_marcos_seed_if_requested
+
+            n = apply_marcos_seed_if_requested()
+            if n:
+                print(f"[seed] Marcos: {n} comandos SQL aplicados em produção.")
             return
         except Exception as exc:
             last_err = exc
