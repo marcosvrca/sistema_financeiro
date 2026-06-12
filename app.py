@@ -142,7 +142,7 @@ def _tela_login() -> bool:
         return True
 
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
-    st.markdown("## Finanças Pro")
+    st.markdown("## seOrganize")
     st.caption("Entre com sua conta para acessar seus dados.")
 
     with st.form("login"):
@@ -676,7 +676,7 @@ def _tab_orcamento() -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="Finanças Pro",
+        page_title="seOrganize",
         page_icon="💰",
         layout="wide",
         initial_sidebar_state="expanded",
@@ -695,7 +695,7 @@ def main() -> None:
 
 
 def _run_app() -> None:
-    st.markdown("## Finanças Pro")
+    st.markdown("## seOrganize")
     st.caption(
         "Extrato · contas fixas · orçamento · reserva · metas · investimentos · planejamento"
     )

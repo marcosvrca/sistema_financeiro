@@ -210,7 +210,7 @@ class ContaFixaMesIn(BaseModel):
     observacao: str | None = None
 
 
-app = FastAPI(title="Sistema financeiro", version="2.0")
+app = FastAPI(title="seOrganize", version="2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
