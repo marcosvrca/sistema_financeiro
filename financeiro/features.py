@@ -20,6 +20,7 @@ from financeiro.db import (
     _d,
     _row_val,
     listar_contas_fixas,
+    listar_contas_fixas_mes,
     listar_orcamento_mes,
     obter_config,
     resumo_por_categoria,
@@ -1347,8 +1348,116 @@ def salvar_notificacoes_email(email: str, db_path: Path | str | None = None) -> 
     salvar_config(CHAVE_NOTIF_EMAIL, email.strip(), db_path)
 
 
-def resumo_alertas_sistema(mes: str, db_path: Path | str | None = None) -> list[dict[str, str]]:
-    """Alertas agregados para dashboard."""
+_MESES_ABREV = ("", "JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ")
+
+
+def _urgencia_vencimento(dias: int) -> tuple[str, str]:
+    if dias < 0:
+        return "vencido", "danger"
+    if dias == 0:
+        return "hoje", "danger"
+    if dias <= 3:
+        return "urgente", "warn"
+    if dias <= 7:
+        return "proximo", "info"
+    return "futuro", "ok"
+
+
+def alertas_vencimentos_dashboard(
+    mes: str | None = None,
+    db_path: Path | str | None = None,
+    *,
+    janela_dias: int = 14,
+    max_itens: int = 12,
+) -> dict[str, Any]:
+    """Vencimentos estruturados para o dashboard (contas fixas e cartões)."""
+    hoje = date.today()
+    ref_mes = mes or hoje.strftime("%Y-%m")
+    ano, mes_num = int(ref_mes[:4]), int(ref_mes[5:7])
+    mes_label = _MESES_ABREV[mes_num]
+
+    itens: list[dict[str, Any]] = []
+    dados_mes = listar_contas_fixas_mes(ref_mes, db_path)
+    for row in dados_mes["itens"]:
+        if row["status"] == "pago":
+            continue
+        venc = date.fromisoformat(str(row["vencimento"])[:10])
+        dias = (venc - hoje).days
+        urgencia, nivel = _urgencia_vencimento(dias)
+        if dias > janela_dias and urgencia != "vencido":
+            continue
+        itens.append(
+            {
+                "tipo": "conta_fixa",
+                "id": row["conta_fixa_id"],
+                "nome": row["nome"],
+                "valor": str(row["valor_real"]),
+                "vencimento": row["vencimento"],
+                "dia": row["dia"],
+                "mes_label": mes_label,
+                "dias": dias,
+                "urgencia": urgencia,
+                "nivel": nivel,
+                "status": row["status"],
+                "categoria": row["categoria"],
+            }
+        )
+
+    cart_resumo = resumo_cartoes_credito(db_path)
+    for alerta in cart_resumo.get("alertas_vencimento", []):
+        venc = date.fromisoformat(str(alerta["vencimento"])[:10])
+        dias = int(alerta["dias_para_vencer"])
+        urgencia, nivel = _urgencia_vencimento(dias)
+        itens.append(
+            {
+                "tipo": "cartao",
+                "id": None,
+                "nome": alerta["cartao"],
+                "valor": None,
+                "vencimento": alerta["vencimento"],
+                "dia": venc.day,
+                "mes_label": _MESES_ABREV[venc.month],
+                "dias": dias,
+                "urgencia": urgencia,
+                "nivel": nivel,
+                "status": "a_pagar",
+                "categoria": "Cartão de crédito",
+            }
+        )
+
+    ordem = {"vencido": 0, "hoje": 1, "urgente": 2, "proximo": 3, "futuro": 4}
+    itens.sort(key=lambda x: (ordem.get(x["urgencia"], 9), x["dias"], x["nome"]))
+    visiveis = itens[:max_itens]
+
+    total_pendente = Decimal(0)
+    qtd_vencido = qtd_hoje = qtd_proximos = 0
+    for row in itens:
+        if row["valor"] is not None:
+            total_pendente += _d(row["valor"])
+        if row["urgencia"] == "vencido":
+            qtd_vencido += 1
+        elif row["urgencia"] == "hoje":
+            qtd_hoje += 1
+        elif row["dias"] <= 7:
+            qtd_proximos += 1
+
+    return {
+        "mes": ref_mes,
+        "itens": visiveis,
+        "total_itens": len(itens),
+        "tem_mais": len(itens) > len(visiveis),
+        "resumo": {
+            "vencidos": qtd_vencido,
+            "hoje": qtd_hoje,
+            "proximos_7_dias": qtd_proximos,
+            "total_pendente": str(total_pendente.quantize(Decimal("0.01"))),
+            "total_mes_contas": str(dados_mes["resumo"]["total_a_pagar"]),
+        },
+    }
+
+
+def resumo_alertas_gerais(mes: str, db_path: Path | str | None = None) -> list[dict[str, str]]:
+    """Alertas de orçamento e reserva (sem vencimentos)."""
     alertas: list[dict[str, str]] = []
     for o in orcamento_com_alertas(mes, db_path):
         if o["alerta"] == "estourado":
@@ -1373,13 +1482,24 @@ def resumo_alertas_sistema(mes: str, db_path: Path | str | None = None) -> list[
                 "texto": f"Reserva de emergência em {reserva['pct_atingido']:.0f}% da meta.",
             }
         )
-    cal = calendario_vencimentos(date.today().year, date.today().month, db_path)
-    prox = [i for i in cal["itens"] if i["dia"] >= date.today().day][:3]
-    for p in prox:
-        alertas.append(
-            {
-                "nivel": "info",
-                "texto": f"Vence dia {p['dia']}: {p['nome']} ({p['valor']}).",
-            }
-        )
+    return alertas
+
+
+def resumo_alertas_sistema(mes: str, db_path: Path | str | None = None) -> list[dict[str, str]]:
+    """Alertas agregados (compatível com telas legadas)."""
+    alertas = resumo_alertas_gerais(mes, db_path)
+    venc = alertas_vencimentos_dashboard(mes, db_path, janela_dias=7, max_itens=3)
+    for item in venc["itens"]:
+        dias = item["dias"]
+        if dias < 0:
+            texto = f"Venceu há {abs(dias)} dia(s): {item['nome']}"
+            nivel = "danger"
+        elif dias == 0:
+            texto = f"Vence hoje: {item['nome']}"
+            nivel = "danger"
+        else:
+            valor_txt = f" ({item['valor']})" if item["valor"] else ""
+            texto = f"Vence em {dias} dia(s): {item['nome']}{valor_txt}"
+            nivel = item["nivel"]
+        alertas.append({"nivel": nivel, "texto": texto})
     return alertas

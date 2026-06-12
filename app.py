@@ -5,6 +5,7 @@ Execute: streamlit run app.py
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -12,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from financeiro.auth import authenticate
+from financeiro.auth import INACTIVITY_TIMEOUT_SECONDS, SESSION_MAX_SECONDS, authenticate
 from financeiro.config import user_sqlite_path
 from financeiro.context import current_user_id
 from financeiro.db import (
@@ -136,10 +137,38 @@ _LOGIN_CSS = """
 """
 
 
+def _encerrar_sessao(mensagem: str | None = None) -> None:
+    for key in ("user_id", "user_nome", "login_at", "last_activity"):
+        st.session_state.pop(key, None)
+    if mensagem:
+        st.session_state.logout_msg = mensagem
+
+
+def _sessao_valida() -> bool:
+    if not st.session_state.get("user_id"):
+        return False
+    agora = time.time()
+    login_at = st.session_state.get("login_at", agora)
+    if agora - login_at > SESSION_MAX_SECONDS:
+        _encerrar_sessao("Sessão encerrada após 12 horas. Faça login novamente.")
+        return False
+    ultima = st.session_state.get("last_activity", login_at)
+    if agora - ultima > INACTIVITY_TIMEOUT_SECONDS:
+        _encerrar_sessao("Sessão encerrada por inatividade (15 minutos).")
+        return False
+    st.session_state.last_activity = agora
+    return True
+
+
 def _tela_login() -> bool:
     """Retorna True quando o usuário está autenticado."""
+    if st.session_state.get("logout_msg"):
+        st.warning(st.session_state.pop("logout_msg"))
+
     if st.session_state.get("user_id"):
-        return True
+        if _sessao_valida():
+            return True
+        st.rerun()
 
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
     st.markdown("## seOrganize")
@@ -153,8 +182,11 @@ def _tela_login() -> bool:
             if not user:
                 st.error("E-mail ou senha incorretos.")
             else:
+                agora = time.time()
                 st.session_state.user_id = user["id"]
                 st.session_state.user_nome = user["nome"]
+                st.session_state.login_at = agora
+                st.session_state.last_activity = agora
                 st.rerun()
     return False
 
@@ -706,9 +738,9 @@ def _run_app() -> None:
 
     nome = st.session_state.get("user_nome", "")
     st.sidebar.markdown(f"**{nome}**")
-    if st.sidebar.button("Sair"):
-        for key in ("user_id", "user_nome"):
-            st.session_state.pop(key, None)
+    st.sidebar.caption("Sessão: até 12h · inatividade 15 min")
+    if st.sidebar.button("Sair", type="secondary"):
+        _encerrar_sessao()
         st.rerun()
     st.sidebar.divider()
     st.sidebar.markdown("### Período de análise")

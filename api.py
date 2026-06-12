@@ -14,7 +14,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from financeiro.auth import authenticate, create_access_token, user_from_token
+from financeiro.auth import (
+    INACTIVITY_TIMEOUT_SECONDS,
+    SESSION_MAX_SECONDS,
+    authenticate,
+    create_access_token,
+    refresh_token_activity,
+    user_from_token,
+    validate_token,
+)
 from financeiro.config import SQLITE_PATH, USERS_DATA_DIR, using_postgres
 from financeiro.context import current_user_id
 from financeiro.db import (
@@ -85,6 +93,8 @@ from financeiro.features import (
     obter_reserva_multiplicador,
     orcamento_com_alertas,
     registrar_mov_investimento,
+    alertas_vencimentos_dashboard,
+    resumo_alertas_gerais,
     resumo_alertas_sistema,
     resumo_investimentos,
     resumo_reserva_emergencia,
@@ -216,9 +226,10 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Session-Token"],
 )
 
-_PUBLIC_PATHS = {"/", "/api/health", "/api/auth/login"}
+_PUBLIC_PATHS = {"/", "/api/health", "/api/auth/login", "/api/auth/logout"}
 
 
 def _extract_bearer(request: Request) -> str | None:
@@ -239,13 +250,19 @@ async def auth_middleware(request: Request, call_next):
     token = _extract_bearer(request)
     if not token:
         return PlainTextResponse("Não autenticado", status_code=401)
-    user = user_from_token(token)
-    if not user:
-        return PlainTextResponse("Token inválido ou expirado", status_code=401)
+    validated = validate_token(token)
+    if not validated:
+        return PlainTextResponse("Sessão expirada ou inválida", status_code=401)
+    payload, user = validated
 
     token_ctx = current_user_id.set(user["id"])
     try:
-        return await call_next(request)
+        response = await call_next(request)
+        if response.status_code < 400:
+            new_token = refresh_token_activity(payload)
+            if new_token:
+                response.headers["X-Session-Token"] = new_token
+        return response
     finally:
         current_user_id.reset(token_ctx)
 
@@ -284,11 +301,21 @@ def login(body: LoginIn) -> dict:
     user = authenticate(body.email, body.password)
     if not user:
         raise HTTPException(401, "E-mail ou senha incorretos.")
-    token = create_access_token(user["id"], body.email.strip().lower())
+    email = body.email.strip().lower()
+    token = create_access_token(user["id"], email)
     return {
         "token": token,
-        "user": {"id": user["id"], "nome": user["nome"], "email": body.email.strip().lower()},
+        "user": {"id": user["id"], "nome": user["nome"], "email": email},
+        "session": {
+            "max_hours": SESSION_MAX_SECONDS // 3600,
+            "inactivity_minutes": INACTIVITY_TIMEOUT_SECONDS // 60,
+        },
     }
+
+
+@app.post("/api/auth/logout")
+def logout() -> dict:
+    return {"ok": True}
 
 
 @app.get("/api/auth/me")
@@ -298,8 +325,14 @@ def auth_me(request: Request) -> dict:
         raise HTTPException(401, "Não autenticado")
     user = user_from_token(token)
     if not user:
-        raise HTTPException(401, "Token inválido ou expirado")
-    return user
+        raise HTTPException(401, "Sessão expirada ou inválida")
+    return {
+        **user,
+        "session": {
+            "max_hours": SESSION_MAX_SECONDS // 3600,
+            "inactivity_minutes": INACTIVITY_TIMEOUT_SECONDS // 60,
+        },
+    }
 
 
 @app.get("/api/health")
@@ -1311,9 +1344,12 @@ def api_put_notif(body: NotifIn) -> dict:
 
 
 @app.get("/api/alertas")
-def api_alertas(mes: str | None = None) -> list[dict]:
+def api_alertas(mes: str | None = None) -> dict:
     ref = _parse_mes(mes)
-    return resumo_alertas_sistema(ref)
+    return {
+        "gerais": resumo_alertas_gerais(ref),
+        "vencimentos": alertas_vencimentos_dashboard(ref),
+    }
 
 
 @app.get("/api/export/movimentos")

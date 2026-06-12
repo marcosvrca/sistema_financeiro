@@ -334,6 +334,177 @@
     .msg { font-size: 0.82rem; min-height: 1.2em; margin-top: 0.5rem; }
     .msg.ok { color: var(--emerald); }
     .msg.err { color: var(--rose); }
+    .msg.warn { color: #fbbf24; }
+
+    .venc-dash .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .venc-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .venc-stat {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.28rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+    }
+    .venc-stat.danger {
+      color: var(--rose);
+      border-color: rgba(248, 113, 113, 0.35);
+      background: rgba(248, 113, 113, 0.1);
+    }
+    .venc-stat.warn {
+      color: #fbbf24;
+      border-color: rgba(251, 191, 36, 0.35);
+      background: rgba(251, 191, 36, 0.1);
+    }
+    .venc-stat.info {
+      color: var(--sky);
+      border-color: rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .venc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 0.75rem;
+    }
+    .venc-card {
+      display: flex;
+      gap: 0.85rem;
+      padding: 0.85rem 0.9rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(8, 12, 20, 0.55);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .venc-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+    .venc-card.vencido {
+      border-color: rgba(248, 113, 113, 0.45);
+      background: rgba(248, 113, 113, 0.06);
+    }
+    .venc-card.hoje {
+      border-color: rgba(212, 175, 55, 0.5);
+      background: rgba(212, 175, 55, 0.08);
+      box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.12);
+    }
+    .venc-card.urgente { border-color: rgba(251, 191, 36, 0.4); }
+    .venc-card.proximo { border-color: rgba(56, 189, 248, 0.3); }
+    .venc-date {
+      flex-shrink: 0;
+      width: 52px;
+      text-align: center;
+      border-radius: 10px;
+      padding: 0.35rem 0.25rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+    .venc-date .day {
+      display: block;
+      font-size: 1.25rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+    .venc-date .mon {
+      display: block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      margin-top: 0.2rem;
+    }
+    .venc-body { flex: 1; min-width: 0; }
+    .venc-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+    }
+    .venc-top strong {
+      font-size: 0.9rem;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .venc-badge {
+      flex-shrink: 0;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .venc-badge.danger { background: rgba(248, 113, 113, 0.18); color: var(--rose); }
+    .venc-badge.warn { background: rgba(251, 191, 36, 0.18); color: #fbbf24; }
+    .venc-badge.info { background: rgba(56, 189, 248, 0.15); color: var(--sky); }
+    .venc-badge.ok { background: rgba(148, 163, 184, 0.15); color: var(--muted); }
+    .venc-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .venc-meta .valor { color: var(--text); font-weight: 700; }
+    .venc-empty {
+      text-align: center;
+      padding: 1.25rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .venc-footer {
+      margin-top: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .venc-footer button.link {
+      color: var(--gold);
+      font-weight: 600;
+    }
+    .alertas-gerais {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-bottom: 1rem;
+    }
+    .alerta-geral {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(26, 35, 50, 0.45);
+      font-size: 0.82rem;
+    }
+    .alerta-geral i { margin-top: 0.1rem; font-size: 1rem; }
+    .alerta-geral.danger { border-color: rgba(248, 113, 113, 0.35); color: #fecaca; }
+    .alerta-geral.warn { border-color: rgba(251, 191, 36, 0.35); color: #fde68a; }
 
     .pill-manual {
       font-size: 0.65rem;
@@ -562,6 +733,34 @@
     }
     .btn-logout:hover { color: var(--rose); border-color: rgba(248, 113, 113, 0.35); }
 
+    .top-user-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .top-user-bar .session-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .btn-logout-top {
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      background: rgba(248, 113, 113, 0.08);
+      color: var(--rose);
+      border-radius: 10px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-logout-top:hover {
+      background: rgba(248, 113, 113, 0.15);
+      border-color: rgba(248, 113, 113, 0.5);
+    }
+
     @media (max-width: 991px) {
       .app-shell { flex-direction: column; }
       .sidebar {
@@ -689,6 +888,13 @@
     </aside>
 
     <main class="main-content">
+      <div class="top-user-bar" id="top-user-bar">
+        <span class="session-hint">Sessão: até 12h · encerra após 15 min sem uso</span>
+        <button type="button" class="btn-logout-top" id="btn-logout-top">
+          <i class="bi bi-box-arrow-right me-1"></i> Sair
+        </button>
+      </div>
+
       <!-- DASHBOARD -->
       <section id="panel-inicio" class="panel active">
         <div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-2">
@@ -700,7 +906,7 @@
             <i class="bi bi-funnel-fill"></i> <span id="filtro-ativo-texto"></span>
           </span>
         </div>
-        <div id="alertas-dash" class="mb-3"></div>
+        <div id="alertas-dash" class="mb-4"></div>
 
         <div class="card-premium filter-bar mb-4">
           <div class="period-bar mb-0" style="margin-bottom:0">
@@ -1623,6 +1829,11 @@
   <script>
     const API = "";
     const TOKEN_KEY = "financas_token";
+    const LOGIN_AT_KEY = "financas_login_at";
+    const INACTIVITY_MS = 15 * 60 * 1000;
+    const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
+    let idleTimer = null;
+    let sessionActivityBound = false;
     let tipoLanc = "saida";
     let tipoEdicao = "saida";
     let chartM = null, chartC = null, chartInv = null;
@@ -1682,8 +1893,26 @@
       else localStorage.removeItem(TOKEN_KEY);
     }
 
+    function getLoginAt() {
+      const v = localStorage.getItem(LOGIN_AT_KEY);
+      return v ? Number(v) : null;
+    }
+
+    function setLoginAt(ts) {
+      if (ts) localStorage.setItem(LOGIN_AT_KEY, String(ts));
+      else localStorage.removeItem(LOGIN_AT_KEY);
+    }
+
+    function clearIdleTimer() {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+    }
+
     function showLogin(msg) {
       document.body.classList.remove("logged-in");
+      clearIdleTimer();
       const loginMsg = document.getElementById("login-msg");
       if (loginMsg) {
         loginMsg.textContent = msg || "";
@@ -1695,6 +1924,50 @@
       document.body.classList.add("logged-in");
     }
 
+    async function doLogout(msg) {
+      clearIdleTimer();
+      try {
+        await fetch(API + "/api/auth/logout", { method: "POST" });
+      } catch (_) { /* offline: encerra localmente */ }
+      setToken(null);
+      setLoginAt(null);
+      showLogin(msg || "");
+      const pwd = document.getElementById("login-password");
+      if (pwd) pwd.value = "";
+    }
+
+    function checkSessionLimits() {
+      const loginAt = getLoginAt();
+      if (loginAt && Date.now() - loginAt >= SESSION_MAX_MS) {
+        doLogout("Sessão encerrada após 12 horas. Faça login novamente.");
+        return false;
+      }
+      return true;
+    }
+
+    function resetIdleTimer() {
+      if (!document.body.classList.contains("logged-in")) return;
+      if (!checkSessionLimits()) return;
+      clearIdleTimer();
+      idleTimer = setTimeout(() => {
+        doLogout("Sessão encerrada por inatividade (15 minutos).");
+      }, INACTIVITY_MS);
+    }
+
+    function bindSessionActivity() {
+      if (sessionActivityBound) return;
+      sessionActivityBound = true;
+      ["mousedown", "keydown", "scroll", "touchstart", "click"].forEach((ev) => {
+        document.addEventListener(ev, resetIdleTimer, { passive: true });
+      });
+    }
+
+    function startSession() {
+      if (!getLoginAt()) setLoginAt(Date.now());
+      bindSessionActivity();
+      resetIdleTimer();
+    }
+
     async function api(path, opts = {}) {
       const headers = { "Content-Type": "application/json", ...opts.headers };
       const token = getToken();
@@ -1703,15 +1976,17 @@
         headers,
         ...opts,
       });
+      const newToken = r.headers.get("X-Session-Token");
+      if (newToken) setToken(newToken);
       if (r.status === 401) {
-        setToken(null);
-        showLogin("Sessão expirada. Faça login novamente.");
+        await doLogout("Sessão expirada. Faça login novamente.");
         throw new Error("Sessão expirada. Faça login novamente.");
       }
       if (!r.ok) {
         const t = await r.text();
         throw new Error(t || r.statusText);
       }
+      if (document.body.classList.contains("logged-in")) resetIdleTimer();
       if (r.status === 204) return null;
       return r.json();
     }
@@ -1990,13 +2265,94 @@
         p.pct_comprometido != null ? p.pct_comprometido.toFixed(1) + "%" : "—";
     }
 
+    function labelVencimento(dias) {
+      if (dias < 0) return `Venceu há ${Math.abs(dias)} dia(s)`;
+      if (dias === 0) return "Vence hoje";
+      if (dias === 1) return "Amanhã";
+      return `Em ${dias} dias`;
+    }
+
+    function iconeAlertaGeral(nivel) {
+      if (nivel === "danger") return "bi-exclamation-octagon-fill";
+      if (nivel === "warn") return "bi-exclamation-triangle-fill";
+      return "bi-info-circle-fill";
+    }
+
+    function renderAlertasGerais(gerais) {
+      if (!gerais || !gerais.length) return "";
+      return `
+        <div class="alertas-gerais">
+          ${gerais.map((a) => `
+            <div class="alerta-geral ${a.nivel}">
+              <i class="bi ${iconeAlertaGeral(a.nivel)}"></i>
+              <span>${a.texto}</span>
+            </div>
+          `).join("")}
+        </div>`;
+    }
+
+    function renderVencimentosDashboard(venc) {
+      const resumo = venc.resumo || {};
+      const itens = venc.itens || [];
+      const stats = [];
+      if (resumo.vencidos > 0) stats.push(`<span class="venc-stat danger">${resumo.vencidos} vencida(s)</span>`);
+      if (resumo.hoje > 0) stats.push(`<span class="venc-stat warn">${resumo.hoje} hoje</span>`);
+      if (resumo.proximos_7_dias > 0) stats.push(`<span class="venc-stat info">${resumo.proximos_7_dias} em 7 dias</span>`);
+
+      const cards = itens.map((item) => {
+        const icon = item.tipo === "cartao" ? "bi-credit-card" : "bi-calendar-check";
+        const valor = item.valor != null ? fmtBr(item.valor) : "—";
+        return `
+          <article class="venc-card ${item.urgencia}">
+            <div class="venc-date">
+              <span class="day">${item.dia}</span>
+              <span class="mon">${item.mes_label || ""}</span>
+            </div>
+            <div class="venc-body">
+              <div class="venc-top">
+                <strong><i class="bi ${icon} me-1 opacity-75"></i>${item.nome}</strong>
+                <span class="venc-badge ${item.nivel}">${labelVencimento(item.dias)}</span>
+              </div>
+              <div class="venc-meta">
+                <span class="valor">${valor}</span>
+                <span>${item.categoria || ""}</span>
+              </div>
+            </div>
+          </article>`;
+      }).join("");
+
+      const lista = cards || `<div class="venc-empty"><i class="bi bi-check2-circle d-block mb-2 fs-4 text-success"></i>Nenhum vencimento urgente nos próximos 14 dias.</div>`;
+      const footer = `
+        <div class="venc-footer">
+          <span>Pendente no mês: <strong>${fmtBr(resumo.total_mes_contas)}</strong></span>
+          ${venc.tem_mais ? `<button type="button" class="link" data-goto-tab="fixas">Ver todas (${venc.total_itens})</button>` : ""}
+        </div>`;
+
+      return `
+        <div class="card-premium venc-dash mb-3">
+          <div class="card-title">
+            <span><i class="bi bi-bell"></i> Vencimentos e alertas</span>
+            <div class="venc-stats">${stats.join("")}</div>
+          </div>
+          <div class="venc-grid">${lista}</div>
+          ${footer}
+        </div>`;
+    }
+
+    function renderAlertasDashboard(data) {
+      const gerais = renderAlertasGerais(data.gerais);
+      const venc = renderVencimentosDashboard(data.vencimentos || { itens: [], resumo: {} });
+      return gerais + venc;
+    }
+
     async function refreshDashboard() {
       const pq = periodoQuery();
-      const [ind, mensal, cats, planej] = await Promise.all([
+      const [ind, mensal, cats, planej, alertasData] = await Promise.all([
         api("/api/indicadores" + pq),
         api("/api/resumo/mensal" + pq),
         api("/api/resumo/categorias" + pq),
         api("/api/contas-fixas/planejamento"),
+        api("/api/alertas?mes=" + mesAtual()),
       ]);
       atualizarKpisFixas(planej);
       const f = ind.fmt || {};
@@ -2009,12 +2365,15 @@
       document.getElementById("k-pctf").textContent = ind.pct_fixas != null ? ind.pct_fixas.toFixed(1) + "%" : "—";
       document.getElementById("k-ticket").textContent = ind.ticket_medio_debito ? fmtBr(ind.ticket_medio_debito) : "—";
 
-      const alertas = await api("/api/alertas?mes=" + mesAtual());
       const alEl = document.getElementById("alertas-dash");
       if (alEl) {
-        alEl.innerHTML = alertas.slice(0, 4).map((a) =>
-          `<div class="msg ${a.nivel === "danger" ? "err" : a.nivel === "warn" ? "" : "ok"} small py-2 px-3 mb-1">${a.texto}</div>`
-        ).join("") || "";
+        alEl.innerHTML = renderAlertasDashboard(alertasData);
+        alEl.querySelectorAll("[data-goto-tab]").forEach((btn) => {
+          btn.onclick = () => {
+            const tab = document.querySelector(`#nav-tabs button[data-tab="${btn.dataset.gotoTab}"]`);
+            if (tab) tab.click();
+          };
+        });
       }
 
       const tb = document.querySelector("#tbl-cat tbody");
@@ -3240,6 +3599,7 @@
         }
         const data = await r.json();
         setToken(data.token);
+        setLoginAt(Date.now());
         await bootApp(data.user);
       } catch (err) {
         msg.textContent = err.message || "Não foi possível entrar.";
@@ -3249,14 +3609,13 @@
       }
     };
 
-    document.getElementById("btn-logout").onclick = () => {
-      setToken(null);
-      showLogin();
-      document.getElementById("login-password").value = "";
-    };
+    document.getElementById("btn-logout").onclick = () => doLogout();
+    document.getElementById("btn-logout-top").onclick = () => doLogout();
 
     async function bootApp(user) {
+      if (!checkSessionLimits()) return;
       showApp();
+      startSession();
       if (user && user.nome) {
         document.getElementById("user-nome").textContent = user.nome;
       }
