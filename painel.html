@@ -2,7 +2,7 @@
 <html lang="pt-BR" data-bs-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>seOrganize</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -31,12 +31,19 @@
 
     * { box-sizing: border-box; }
 
+    html {
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+    }
+
     body {
       margin: 0;
       font-family: "Plus Jakarta Sans", system-ui, sans-serif;
       background: var(--bg-deep);
       color: var(--text);
       min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
       background-image:
         radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 175, 55, 0.12), transparent),
         radial-gradient(ellipse 60% 40% at 100% 0%, rgba(56, 189, 248, 0.06), transparent),
@@ -97,7 +104,7 @@
       font-weight: 500;
     }
 
-    .nav-premium { flex: 1; }
+    .nav-premium { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .nav-premium .nav-link {
       color: var(--muted);
       border-radius: 10px;
@@ -224,6 +231,9 @@
       box-shadow: 0 6px 24px var(--gold-glow);
       color: #0a0f1a;
     }
+    .btn-gold, .btn-outline-light, .mobile-nav-toggle, .mobile-topbar-menu, .filter-chip, .nav-premium .nav-link {
+      touch-action: manipulation;
+    }
 
     .tipo-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
     .tipo-btns button {
@@ -317,6 +327,18 @@
       background: rgba(255, 255, 255, 0.03);
     }
     .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+    .table-scroll-hint {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      display: none;
+    }
 
     .recentes { max-height: 220px; overflow-y: auto; margin-top: 1rem; }
     .recentes ul { list-style: none; margin: 0; padding: 0; }
@@ -666,6 +688,45 @@
 
     .mobile-nav-toggle { display: none; }
 
+    .mobile-topbar {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 90;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      padding-top: max(0.65rem, env(safe-area-inset-top));
+      margin: -0.5rem -1rem 0.75rem;
+      background: rgba(10, 15, 26, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .mobile-topbar-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mobile-topbar-menu {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
     .login-screen {
       position: fixed;
       inset: 0;
@@ -765,25 +826,38 @@
       .app-shell { flex-direction: column; }
       .sidebar {
         position: fixed;
-        left: -280px;
-        transition: left 0.3s ease;
-        width: 280px;
-        height: 100%;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        width: min(280px, 88vw);
+        height: 100vh;
+        height: 100dvh;
+        z-index: 110;
+        box-shadow: none;
       }
-      .sidebar.open { left: 0; }
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 8px 0 40px rgba(0, 0, 0, 0.45);
+      }
       .sidebar-overlay {
         display: none;
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.6);
-        z-index: 99;
+        z-index: 105;
+        backdrop-filter: blur(2px);
       }
       .sidebar-overlay.show { display: block; }
-      .mobile-nav-toggle {
+      .mobile-topbar {
+        display: flex;
+      }
+      body.logged-in .mobile-nav-toggle {
         display: inline-flex;
         position: fixed;
-        bottom: 1.25rem;
-        right: 1.25rem;
+        bottom: calc(1rem + env(safe-area-inset-bottom));
+        right: calc(1rem + env(safe-area-inset-right));
         z-index: 101;
         width: 52px;
         height: 52px;
@@ -796,7 +870,126 @@
         font-size: 1.35rem;
         box-shadow: 0 8px 28px var(--gold-glow);
       }
-      .main-content { padding: 1rem; padding-top: 0.5rem; }
+      .main-content {
+        padding: 0.75rem;
+        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+        width: 100%;
+        min-width: 0;
+      }
+      .top-user-bar { display: none; }
+      .page-header h2 { font-size: 1.25rem; }
+      .page-header .lead { font-size: 0.82rem; }
+      .card-premium { padding: 1rem; }
+      .period-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+      .period-bar .period-field {
+        min-width: 0;
+        max-width: none;
+        width: 100%;
+      }
+      .period-bar > div:last-child .btn-gold {
+        width: 100%;
+      }
+      .filtro-opcoes {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .filtro-opcoes .small { font-size: 0.75rem; line-height: 1.35; }
+      .filter-chips { gap: 0.4rem; }
+      .filter-chip {
+        font-size: 0.76rem;
+        padding: 0.45rem 0.7rem;
+      }
+      .quick-period button {
+        flex: 1 1 calc(50% - 0.4rem);
+        min-width: 0;
+        text-align: center;
+      }
+      .venc-grid {
+        grid-template-columns: 1fr;
+      }
+      .venc-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .venc-badge { white-space: normal; }
+      .metric-card strong { font-size: 1rem; }
+      .chart-wrap {
+        min-height: 200px;
+      }
+      .chart-wrap canvas { max-height: 220px !important; }
+      .table-scroll-hint { display: block; }
+      .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+      }
+      .modal-dialog-centered {
+        min-height: calc(100% - 1rem);
+      }
+      #metrics .col-6 { flex: 0 0 50%; max-width: 50%; }
+    }
+
+    @media (max-width: 575px) {
+      .login-screen { padding: 1rem; }
+      .login-card { padding: 1.5rem 1.25rem; }
+      .main-content { padding: 0.65rem; }
+      .mobile-topbar { margin-left: -0.65rem; margin-right: -0.65rem; }
+      #metrics .col-6 {
+        flex: 0 0 100%;
+        max-width: 100%;
+      }
+      .metric-card { padding: 0.85rem; }
+      .metric-card strong { font-size: 1.1rem; }
+      .tipo-btns button,
+      .btn-gold,
+      .btn-outline-light {
+        min-height: 44px;
+      }
+      .form-control, .form-select, textarea.form-control {
+        font-size: 16px;
+      }
+      .nav-premium .nav-link {
+        padding: 0.75rem 0.85rem;
+        min-height: 44px;
+      }
+      .row.g-2 > .col-2,
+      .row.g-2 > .col-3,
+      .row.g-2 > .col-4,
+      .row.g-2 > .col-7,
+      .row.g-3 > .col-md-2,
+      .row.g-3 > .col-md-3,
+      .row.g-3 > .col-md-4,
+      .row.g-3 > .col-md-6,
+      .row.g-2 > .col-md-2,
+      .row.g-2 > .col-md-3,
+      .row.g-2 > .col-md-4,
+      .row.g-2 > .col-md-6 {
+        flex: 0 0 100%;
+        max-width: 100%;
+      }
+      .acoes-cell {
+        white-space: normal;
+      }
+      .acoes-cell .link,
+      .acoes-cell .link-edit {
+        display: inline-block;
+        padding: 0.35rem 0;
+        min-height: 36px;
+      }
+      pre.small {
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .modal-fullscreen-sm-down {
+        width: 100vw;
+        max-width: none;
+        margin: 0;
+      }
     }
   </style>
 </head>
@@ -888,6 +1081,13 @@
     </aside>
 
     <main class="main-content">
+      <header class="mobile-topbar" id="mobile-topbar">
+        <button type="button" class="mobile-topbar-menu" id="btn-menu-top" aria-label="Abrir menu">
+          <i class="bi bi-list"></i>
+        </button>
+        <span class="mobile-topbar-title" id="mobile-page-title">seOrganize</span>
+      </header>
+
       <div class="top-user-bar" id="top-user-bar">
         <span class="session-hint">Sessão: até 12h · encerra após 15 min sem uso</span>
         <button type="button" class="btn-logout-top" id="btn-logout-top">
@@ -1665,7 +1865,7 @@
   </div>
 
   <div class="modal fade" id="modal-editar-fixa" tabindex="-1" aria-labelledby="modal-editar-fixa-label" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
       <div class="modal-content modal-premium">
         <div class="modal-header">
           <h5 class="modal-title" id="modal-editar-fixa-label"><i class="bi bi-pencil-square me-2"></i>Editar conta fixa</h5>
@@ -1708,7 +1908,7 @@
   </div>
 
   <div class="modal fade" id="modal-mes-fixas" tabindex="-1" aria-labelledby="modal-mes-fixas-label" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
       <div class="modal-content modal-premium">
         <div class="modal-header">
           <h5 class="modal-title" id="modal-mes-fixas-label">
@@ -1780,7 +1980,7 @@
   </div>
 
   <div class="modal fade" id="modal-editar-lanc" tabindex="-1" aria-labelledby="modal-editar-lanc-label" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
       <div class="modal-content modal-premium">
         <div class="modal-header">
           <h5 class="modal-title" id="modal-editar-lanc-label"><i class="bi bi-pencil-square me-2"></i>Editar lançamento</h5>
@@ -2195,6 +2395,33 @@
     function closeMobileSidebar() {
       document.getElementById("sidebar").classList.remove("open");
       document.getElementById("sidebar-overlay").classList.remove("show");
+      document.body.style.overflow = "";
+    }
+
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById("sidebar");
+      const overlay = document.getElementById("sidebar-overlay");
+      const abrir = !sidebar.classList.contains("open");
+      sidebar.classList.toggle("open", abrir);
+      overlay.classList.toggle("show", abrir);
+      document.body.style.overflow = abrir ? "hidden" : "";
+    }
+
+    function atualizarTituloMobile(tabBtn) {
+      const el = document.getElementById("mobile-page-title");
+      if (!el || !tabBtn) return;
+      const texto = tabBtn.textContent.replace(/\s+/g, " ").trim();
+      el.textContent = texto || "seOrganize";
+    }
+
+    function prepararTabelasMobile() {
+      document.querySelectorAll(".table-responsive").forEach((wrap) => {
+        if (wrap.querySelector(".table-scroll-hint")) return;
+        const hint = document.createElement("div");
+        hint.className = "table-scroll-hint";
+        hint.textContent = "Deslize para ver todas as colunas →";
+        wrap.insertBefore(hint, wrap.firstChild);
+      });
     }
 
     async function carregarCategorias() {
@@ -3584,6 +3811,7 @@
       btn.classList.add("active");
       document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
       document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+      atualizarTituloMobile(btn);
       closeMobileSidebar();
       if (btn.dataset.tab === "lanc") carregarLancamentosPainel();
       if (btn.dataset.tab === "mov") carregarMovimentos();
@@ -3598,10 +3826,8 @@
       if (btn.dataset.tab === "config") carregarConfig();
     };
 
-    document.getElementById("btn-menu").onclick = () => {
-      document.getElementById("sidebar").classList.toggle("open");
-      document.getElementById("sidebar-overlay").classList.toggle("show");
-    };
+    document.getElementById("btn-menu").onclick = toggleMobileSidebar;
+    document.getElementById("btn-menu-top").onclick = toggleMobileSidebar;
     document.getElementById("sidebar-overlay").onclick = closeMobileSidebar;
 
     document.getElementById("btn-recat").onclick = async () => {
@@ -3690,6 +3916,9 @@
         document.getElementById("cc-comp-fatura").value = mesAtual();
         setTipo("saida");
         setTipoEdicao("saida");
+        prepararTabelasMobile();
+        const tabAtiva = document.querySelector("#nav-tabs button[data-tab].active");
+        atualizarTituloMobile(tabAtiva);
         await refreshAll();
       } catch (e) {
         if (e.message && e.message.includes("Sessão expirada")) return;
