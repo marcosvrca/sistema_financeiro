@@ -181,9 +181,15 @@ def parse_extrato_bradesco(conteudo: str) -> list[LinhaExtrato]:
 
 def detectar_banco_extrato(conteudo: str) -> str:
     """Identifica o banco/instituição a partir do cabeçalho ou formato do arquivo."""
+    from financeiro.pdf_parser import eh_extrato_brb_pdf, eh_extrato_nubank_pdf
+
     texto = conteudo.strip().lstrip("\ufeff")
     if eh_extrato_nubank(texto):
         return "Nubank"
+    if eh_extrato_nubank_pdf(texto):
+        return "Nubank"
+    if eh_extrato_brb_pdf(texto):
+        return "BRB"
     amostra = texto[:4000].upper()
     marcas = (
         ("BRB", "BRB"),
@@ -206,14 +212,83 @@ def detectar_banco_extrato(conteudo: str) -> str:
     return "Outro"
 
 
-def parse_extrato_texto(conteudo: str) -> list[LinhaExtrato]:
-    """Detecta Nubank (CSV) ou Bradesco (';') e importa as linhas."""
+def parse_extrato_texto(conteudo: str, banco: str | None = None) -> list[LinhaExtrato]:
+    """Detecta Nubank (CSV/PDF), BRB (PDF) ou Bradesco (';') e importa as linhas."""
+    from financeiro.pdf_parser import parse_extrato_pdf
+
     texto = conteudo.strip().lstrip("\ufeff")
     if eh_extrato_nubank(texto):
         nubank = parse_nubank_csv(texto)
         if nubank:
             return nubank
+    pdf_linhas = parse_extrato_pdf(texto, banco=banco)
+    if pdf_linhas:
+        return pdf_linhas
     return parse_extrato_bradesco(texto)
+
+
+def _limpar_nome_origem(nome: str) -> str:
+    nome = re.sub(r"\s+", " ", nome).strip(" -—")
+    nome = re.sub(r"\s*-\s*•••\.\d+\.\d+-\s*••.*$", "", nome)
+    nome = re.sub(r"\s*-\s*\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}.*$", "", nome)
+    nome = re.sub(r"\s*-\s*[A-Z0-9][A-Z0-9\s.\-/]*\(\d{4}\).*$", "", nome, flags=re.I)
+    nome = re.sub(r"\s*Ag[eê]ncia:.*$", "", nome, flags=re.I)
+    nome = re.sub(r"\s*Conta:.*$", "", nome, flags=re.I)
+    nome = re.sub(r"\s*\(Transfer[eê]ncia enviada\)", "", nome, flags=re.I)
+    if " — " in nome:
+        partes = [p.strip() for p in nome.split(" — ") if p.strip() and p.strip() != "8185"]
+        if partes:
+            nome = partes[0] if len(partes) == 1 else partes[-1]
+    return nome.strip(" -—")[:80]
+
+
+def rotulo_origem_movimento(
+    historico: str,
+    credito: Decimal | None = None,
+    debito: Decimal | None = None,
+) -> str:
+    """Rótulo amigável da origem do movimento (ex.: Pix para Fulano)."""
+    h = (historico or "").strip()
+    if not h:
+        return "Extrato bancário"
+
+    low = h.lower()
+    entrada = credito is not None
+
+    if entrada:
+        m = re.search(r"transfer[eê]ncia recebida(?: pelo pix)?\s+(.+)", h, re.I)
+        if m:
+            nome = _limpar_nome_origem(m.group(1))
+            return f"Recebido de {nome}" if nome else "Transferência recebida"
+        if "salario" in low or "salário" in low:
+            return "Salário recebido"
+        if "juros" in low or "rendimento" in low or "rentab" in low:
+            return "Rendimento / juros"
+        if "estorno" in low:
+            return "Estorno recebido"
+        nome = _limpar_nome_origem(h)
+        return f"Entrada: {nome}" if nome else "Entrada"
+
+    m = re.search(r"transfer[eê]ncia enviada(?: pelo pix)?\s+(.+)", h, re.I)
+    if m:
+        nome = _limpar_nome_origem(m.group(1))
+        return f"Pix para {nome}" if nome else "Pix enviado"
+    m = re.search(r"compra no d[eé]bito\s+(.+)", h, re.I)
+    if m:
+        nome = _limpar_nome_origem(m.group(1))
+        return f"Compra débito: {nome}" if nome else "Compra no débito"
+    if low.startswith("debito pix"):
+        if " — " in h:
+            nome = _limpar_nome_origem(h.split(" — ", 1)[1])
+            if nome and nome != "8185":
+                return f"Pix para {nome}"
+        return "Pix enviado"
+    if "pagamento de" in low or "pagamento " in low:
+        return f"Pagamento: {_limpar_nome_origem(h)[:50]}"
+    if "tarifa" in low or "iof" in low:
+        return "Taxa bancária"
+    nome = _limpar_nome_origem(h)
+    return f"Saída: {nome}" if nome else "Saída"
 
 
 def _eh_gasolina(h: str) -> bool:

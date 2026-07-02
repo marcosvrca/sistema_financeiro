@@ -536,6 +536,20 @@
       border-radius: 6px;
       font-weight: 600;
     }
+    .pill-origem {
+      display: inline-block;
+      font-size: 0.65rem;
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--muted);
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+      font-weight: 500;
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
 
     button.link {
       background: none;
@@ -1360,12 +1374,12 @@
       <section id="panel-import" class="panel">
         <div class="page-header">
           <h2>Importar extrato</h2>
-          <p class="lead">Envie o arquivo do banco ou cole o texto — campos separados por <code>;</code>.</p>
+          <p class="lead">Envie o arquivo do banco (.txt, .csv ou .pdf) ou cole o texto — campos separados por <code>;</code>.</p>
         </div>
         <div class="card-premium col-lg-10">
           <div class="mb-3">
-            <label class="form-label" for="arq-extrato">Arquivo (.txt ou .csv)</label>
-            <input type="file" class="form-control" id="arq-extrato" accept=".txt,.csv" />
+            <label class="form-label" for="arq-extrato">Arquivo (.txt, .csv ou .pdf)</label>
+            <input type="file" class="form-control" id="arq-extrato" accept=".txt,.csv,.pdf" />
           </div>
           <div class="mb-3">
             <label class="form-label" for="imp-banco">Banco do extrato</label>
@@ -1983,11 +1997,12 @@
     <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
       <div class="modal-content modal-premium">
         <div class="modal-header">
-          <h5 class="modal-title" id="modal-editar-lanc-label"><i class="bi bi-pencil-square me-2"></i>Editar lançamento</h5>
+          <h5 class="modal-title" id="modal-editar-lanc-label"><i class="bi bi-pencil-square me-2"></i>Editar movimento</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="ed-id" />
+          <input type="hidden" id="ed-origem" value="manual" />
           <div class="mb-2">
             <label class="form-label" for="ed-data">Data</label>
             <input type="date" class="form-control" id="ed-data" />
@@ -2192,6 +2207,25 @@
       return r.json();
     }
 
+    async function apiUpload(path, formData) {
+      const headers = {};
+      const token = getToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      const r = await fetch(API + path, { method: "POST", headers, body: formData });
+      const newToken = r.headers.get("X-Session-Token");
+      if (newToken) setToken(newToken);
+      if (r.status === 401) {
+        await doLogout("Sessão expirada. Faça login novamente.");
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(t || r.statusText);
+      }
+      if (document.body.classList.contains("logged-in")) resetIdleTimer();
+      return r.json();
+    }
+
     function fmtBr(n) {
       if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
       const x = Math.abs(Number(n));
@@ -2342,6 +2376,7 @@
     }
 
     let detectarBancoTimer = null;
+    let arquivoExtratoPendente = null;
     async function detectarBancoExtrato() {
       const texto = document.getElementById("txt-extrato").value;
       const sel = document.getElementById("imp-banco");
@@ -2373,23 +2408,6 @@
       const sel = document.getElementById(selId);
       if (!sel.options.length) return;
       sel.value = [...sel.options].some((o) => o.value === valorAtual) ? valorAtual : sel.options[0].value;
-    }
-
-    function abrirEditarLancamento(row) {
-      const valor = row.credito != null ? row.credito : row.debito;
-      document.getElementById("ed-id").value = row.manual_id;
-      document.getElementById("ed-data").value = row.data;
-      document.getElementById("ed-desc").value = row.descricao;
-      document.getElementById("ed-valor").value = fmtBr(valor);
-      setTipoEdicao(row.tipo_lanc || "saida");
-      preencherSelectCategorias("ed-cat", row.categoria);
-      const msg = document.getElementById("ed-msg");
-      msg.textContent = "";
-      msg.className = "msg";
-      if (!modalEditarLanc) {
-        modalEditarLanc = new bootstrap.Modal(document.getElementById("modal-editar-lanc"));
-      }
-      modalEditarLanc.show();
     }
 
     function closeMobileSidebar() {
@@ -2483,6 +2501,13 @@
       salvarPeriodoLocal();
     }
 
+    function aplicarPeriodoImportacao(dataMin, dataMax) {
+      if (!dataMin || !dataMax) return;
+      document.getElementById("f-de").value = dataMin;
+      document.getElementById("f-ate").value = dataMax;
+      salvarPeriodoLocal();
+    }
+
     async function carregarPeriodo() {
       const p = await api("/api/periodo");
       const hoje = new Date().toISOString().slice(0, 10);
@@ -2490,10 +2515,15 @@
       const elAte = document.getElementById("f-ate");
       if (p.de) elDe.dataset.min = p.de;
       if (p.ate) elAte.dataset.max = p.ate;
-      if (!restaurarPeriodoLocal()) {
+      const restaurou = restaurarPeriodoLocal();
+      if (!restaurou) {
         const ini = p.de || hoje.slice(0, 8) + "01";
         elDe.value = ini;
         elAte.value = p.ate || hoje;
+        salvarPeriodoLocal();
+      } else if (p.de && p.ate && (elAte.value < p.de || elDe.value > p.ate)) {
+        elDe.value = p.de;
+        elAte.value = p.ate;
         salvarPeriodoLocal();
       }
       document.getElementById("l-data").value = hoje;
@@ -2671,11 +2701,12 @@
       });
     }
 
-    function bindAcoesLancamento(tb) {
+    function bindAcoesMovimento(tb) {
       tb.querySelectorAll("[data-edit-id]").forEach((btn) => {
         btn.onclick = () => {
-          abrirEditarLancamento({
-            manual_id: btn.dataset.editId,
+          abrirEditarMovimento({
+            origem: btn.dataset.editOrigem || "manual",
+            edit_id: btn.dataset.editId,
             data: btn.dataset.editData,
             descricao: decodeURIComponent(btn.dataset.editDesc),
             credito: btn.dataset.editTipo === "entrada" ? Number(btn.dataset.editValor) : null,
@@ -2687,10 +2718,47 @@
       });
       tb.querySelectorAll("[data-del]").forEach((btn) => {
         btn.onclick = async () => {
-          if (!confirm("Excluir este lançamento?")) return;
-          await api("/api/lancamentos/" + btn.dataset.del, { method: "DELETE" });
+          if (!confirm("Excluir este movimento?")) return;
+          const origem = btn.dataset.delOrigem || "manual";
+          const path = origem === "extrato"
+            ? "/api/movimentos/" + btn.dataset.del
+            : "/api/lancamentos/" + btn.dataset.del;
+          await api(path, { method: "DELETE" });
           await refreshAll();
         };
+      });
+    }
+
+    function abrirEditarMovimento(row) {
+      const valor = row.credito != null ? row.credito : row.debito;
+      const origem = row.origem || "manual";
+      const editId = row.edit_id || (origem === "extrato" ? row.movimento_id : row.manual_id);
+      document.getElementById("ed-origem").value = origem;
+      document.getElementById("ed-id").value = editId;
+      document.getElementById("ed-data").value = row.data;
+      document.getElementById("ed-desc").value = row.descricao;
+      document.getElementById("ed-valor").value = fmtBr(valor);
+      setTipoEdicao(row.tipo_lanc || "saida");
+      preencherSelectCategorias("ed-cat", row.categoria);
+      const msg = document.getElementById("ed-msg");
+      msg.textContent = "";
+      msg.className = "msg";
+      if (!modalEditarLanc) {
+        modalEditarLanc = new bootstrap.Modal(document.getElementById("modal-editar-lanc"));
+      }
+      modalEditarLanc.show();
+    }
+
+    function abrirEditarLancamento(row) {
+      abrirEditarMovimento({
+        origem: "manual",
+        manual_id: row.manual_id,
+        data: row.data,
+        descricao: row.descricao,
+        credito: row.credito,
+        debito: row.debito,
+        tipo_lanc: row.tipo_lanc,
+        categoria: row.categoria,
       });
     }
 
@@ -2704,11 +2772,11 @@
       }
       tb.innerHTML = rows.map((r) => {
         const acoes = `<button type="button" class="link link-edit" data-edit-id="${r.id}"
-              data-edit-data="${r.data}" data-edit-desc="${encodeURIComponent(r.descricao)}"
+              data-edit-origem="manual" data-edit-data="${r.data}" data-edit-desc="${encodeURIComponent(r.descricao)}"
               data-edit-valor="${r.valor}"
               data-edit-tipo="${r.tipo}" data-edit-cat="${encodeURIComponent(r.categoria)}">
               <i class="bi bi-pencil"></i> editar</button>
-            <button type="button" class="link" data-del="${r.id}"><i class="bi bi-trash"></i> excluir</button>`;
+            <button type="button" class="link" data-del="${r.id}" data-del-origem="manual"><i class="bi bi-trash"></i> excluir</button>`;
         const ent = r.tipo === "entrada" ? fmtBr(r.valor) : "";
         const sai = r.tipo === "saida" ? fmtBr(r.valor) : "";
         return `<tr>
@@ -2718,30 +2786,34 @@
           <td>${r.categoria}</td><td class="acoes-cell">${acoes}</td>
         </tr>`;
       }).join("");
-      bindAcoesLancamento(tb);
+      bindAcoesMovimento(tb);
     }
 
     async function carregarMovimentos() {
       const rows = await api("/api/movimentos" + periodoQuery());
       const tb = document.querySelector("#tbl-mov tbody");
+      if (!rows.length) {
+        tb.innerHTML = "<tr><td colspan='7' class='text-secondary'>Nenhum movimento no período</td></tr>";
+        return;
+      }
       tb.innerHTML = rows.map((r) => {
-        const acoes = r.origem === "manual" && r.manual_id
-          ? `<button type="button" class="link link-edit" data-edit-id="${r.manual_id}"
-              data-edit-data="${r.data}" data-edit-desc="${encodeURIComponent(r.descricao)}"
+        const editId = r.origem === "extrato" ? r.movimento_id : r.manual_id;
+        const acoes = `<button type="button" class="link link-edit" data-edit-id="${editId}"
+              data-edit-origem="${r.origem}" data-edit-data="${r.data}" data-edit-desc="${encodeURIComponent(r.descricao)}"
               data-edit-valor="${r.credito != null ? r.credito : r.debito}"
               data-edit-tipo="${r.tipo_lanc || "saida"}" data-edit-cat="${encodeURIComponent(r.categoria)}">
               <i class="bi bi-pencil"></i> editar</button>
-            <button type="button" class="link" data-del="${r.manual_id}"><i class="bi bi-trash"></i> excluir</button>`
-          : "";
-        const orig = r.origem === "manual" ? '<span class="pill-manual">manual</span>' : '<span class="text-secondary">extrato</span>';
+            <button type="button" class="link" data-del="${editId}" data-del-origem="${r.origem}"><i class="bi bi-trash"></i> excluir</button>`;
+        const orig = r.origem_label || (r.origem === "manual" ? "Lançamento manual" : "Extrato bancário");
+        const origCls = r.origem === "manual" ? "pill-manual" : "pill-origem";
         return `<tr>
           <td>${r.data}</td><td>${r.descricao}</td>
           <td class="num ent">${r.credito != null ? fmtBr(r.credito) : ""}</td>
           <td class="num sai">${r.debito != null ? fmtBr(r.debito) : ""}</td>
-          <td>${r.categoria}</td><td>${orig}</td><td class="acoes-cell">${acoes}</td>
+          <td>${r.categoria}</td><td><span class="${origCls}">${orig}</span></td><td class="acoes-cell">${acoes}</td>
         </tr>`;
       }).join("");
-      bindAcoesLancamento(tb);
+      bindAcoesMovimento(tb);
     }
 
     async function carregarExtratos() {
@@ -3392,16 +3464,19 @@
       const msg = document.getElementById("ed-msg");
       msg.className = "msg";
       const id = document.getElementById("ed-id").value;
+      const origem = document.getElementById("ed-origem").value || "manual";
+      const payload = {
+        data: document.getElementById("ed-data").value,
+        descricao: document.getElementById("ed-desc").value,
+        valor: document.getElementById("ed-valor").value,
+        tipo: tipoEdicao,
+        categoria: document.getElementById("ed-cat").value,
+      };
+      const path = origem === "extrato" ? "/api/movimentos/" + id : "/api/lancamentos/" + id;
       try {
-        await api("/api/lancamentos/" + id, {
+        await api(path, {
           method: "PUT",
-          body: JSON.stringify({
-            data: document.getElementById("ed-data").value,
-            descricao: document.getElementById("ed-desc").value,
-            valor: document.getElementById("ed-valor").value,
-            tipo: tipoEdicao,
-            categoria: document.getElementById("ed-cat").value,
-          }),
+          body: JSON.stringify(payload),
         });
         if (modalEditarLanc) modalEditarLanc.hide();
         await refreshAll();
@@ -3441,21 +3516,44 @@
     document.getElementById("btn-importar").onclick = async () => {
       const msg = document.getElementById("import-msg");
       msg.className = "msg";
+      const banco = document.getElementById("imp-banco").value || null;
+      const arquivo = arquivoExtratoPendente;
       const texto = document.getElementById("txt-extrato").value;
-      if (!texto.trim()) {
+      if (!arquivo && !texto.trim()) {
         msg.textContent = "Cole ou selecione um extrato.";
         msg.className = "msg err";
         return;
       }
       try {
-        const banco = document.getElementById("imp-banco").value || null;
-        const res = await api("/api/extrato/importar", {
-          method: "POST",
-          body: JSON.stringify({ texto, banco }),
-        });
+        let res;
+        if (arquivo && arquivo.name.toLowerCase().endsWith(".pdf")) {
+          const fd = new FormData();
+          fd.append("arquivo", arquivo);
+          if (banco) fd.append("banco", banco);
+          res = await apiUpload("/api/extrato/importar-arquivo", fd);
+          if (res.texto_extraido) {
+            document.getElementById("txt-extrato").value = res.texto_extraido;
+          }
+        } else if (arquivo) {
+          const fd = new FormData();
+          fd.append("arquivo", arquivo);
+          if (banco) fd.append("banco", banco);
+          res = await apiUpload("/api/extrato/importar-arquivo", fd);
+        } else {
+          res = await api("/api/extrato/importar", {
+            method: "POST",
+            body: JSON.stringify({ texto, banco }),
+          });
+        }
         msg.textContent = `${res.lidas} linhas · ${res.inseridas} novas · ${res.duplicadas} duplicadas · ${res.banco || ""}`;
         msg.className = "msg ok";
-        await carregarPeriodo();
+        arquivoExtratoPendente = null;
+        document.getElementById("arq-extrato").value = "";
+        if (res.data_min && res.data_max) {
+          aplicarPeriodoImportacao(res.data_min, res.data_max);
+        } else {
+          await carregarPeriodo();
+        }
         await refreshAll();
         document.querySelector('[data-tab="extratos"]').click();
       } catch (e) {
@@ -3466,10 +3564,18 @@
 
     document.getElementById("arq-extrato").onchange = (ev) => {
       const f = ev.target.files[0];
+      arquivoExtratoPendente = f || null;
       if (!f) return;
+      if (f.name.toLowerCase().endsWith(".pdf")) {
+        document.getElementById("txt-extrato").value = "";
+        document.getElementById("txt-extrato").placeholder = `PDF selecionado: ${f.name} — clique em Importar para processar.`;
+        detectarBancoExtrato();
+        return;
+      }
       const r = new FileReader();
       r.onload = () => {
         document.getElementById("txt-extrato").value = r.result;
+        document.getElementById("txt-extrato").placeholder = "Cole o extrato aqui…";
         detectarBancoExtrato();
       };
       r.readAsText(f, "UTF-8");

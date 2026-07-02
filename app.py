@@ -318,12 +318,17 @@ def _tab_dashboard(di: date, df: date) -> None:
 
 
 def _tab_importar() -> None:
-    st.write("Cole o extrato exportado do banco ou envie um arquivo `.txt` / `.csv`.")
-    up = st.file_uploader("Arquivo de extrato", type=["txt", "csv"])
+    st.write("Cole o extrato exportado do banco ou envie um arquivo `.txt`, `.csv` ou `.pdf`.")
+    up = st.file_uploader("Arquivo de extrato", type=["txt", "csv", "pdf"])
     default_txt = EXEMPLO_PATH.read_text(encoding="utf-8") if EXEMPLO_PATH.exists() else ""
     texto_upload = ""
     if up:
-        texto_upload = up.read().decode("utf-8", errors="replace")
+        if up.name.lower().endswith(".pdf"):
+            from financeiro.pdf_extract import extrair_texto_pdf
+
+            texto_upload = extrair_texto_pdf(up.read())
+        else:
+            texto_upload = up.read().decode("utf-8", errors="replace")
     texto = st.text_area("Conteúdo do extrato", value=texto_upload or default_txt, height=280)
     if st.button("Processar e gravar no banco", type="primary"):
         linhas = parse_extrato_texto(texto)

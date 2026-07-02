@@ -823,6 +823,68 @@ def excluir_lancamento_manual(db_path: Path | str | None = None, lanc_id: int = 
         return bool(cur.rowcount)
 
 
+def atualizar_movimento(
+    db_path: Path | str | None = None,
+    mov_id: int = 0,
+    data_mov: date | None = None,
+    historico: str = "",
+    valor: Decimal = Decimal(0),
+    tipo: str = "saida",
+    categoria: str = "Outros",
+) -> bool:
+    if tipo not in ("entrada", "saida"):
+        raise ValueError("tipo deve ser 'entrada' ou 'saida'")
+    if data_mov is None:
+        data_mov = date.today()
+    credito = valor if tipo == "entrada" else None
+    debito = valor if tipo == "saida" else None
+    cred_db = credito if using_postgres() else (str(credito) if credito is not None else None)
+    deb_db = debito if using_postgres() else (str(debito) if debito is not None else None)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            q("SELECT docto, saldo FROM movimentos WHERE id = ?"),
+            (mov_id,),
+        ).fetchone()
+        if not row:
+            return False
+        docto = row["docto"] or ""
+        saldo = row["saldo"]
+        linha = LinhaExtrato(
+            data=data_mov,
+            historico=historico.strip(),
+            docto=docto,
+            credito=credito,
+            debito=debito,
+            saldo=_d(saldo) if saldo is not None else None,
+        )
+        novo_hash = _hash_linha(linha)
+        cur = conn.execute(
+            q(
+                """
+            UPDATE movimentos
+            SET data = ?, historico = ?, credito = ?, debito = ?, categoria = ?, hash_linha = ?
+            WHERE id = ?
+            """
+            ),
+            (
+                data_mov.isoformat(),
+                historico.strip(),
+                cred_db,
+                deb_db,
+                categoria,
+                novo_hash,
+                mov_id,
+            ),
+        )
+        return bool(cur.rowcount)
+
+
+def excluir_movimento(db_path: Path | str | None = None, mov_id: int = 0) -> bool:
+    with get_conn(db_path) as conn:
+        cur = conn.execute(q("DELETE FROM movimentos WHERE id = ?"), (mov_id,))
+        return bool(cur.rowcount)
+
+
 def salvar_orcamento(
     db_path: Path | str | None = None, mes: str = "", categoria: str = "", limite: Decimal = Decimal(0)
 ) -> None:
@@ -1242,19 +1304,26 @@ def listar_consolidado(
     filtro: FiltroVisao | None = None,
 ) -> list[dict[str, Any]]:
     """Extrato + lançamentos manuais em uma lista ordenada por data."""
+    from financeiro.parser import rotulo_origem_movimento
+
     itens: list[dict[str, Any]] = []
     for r in listar_movimentos(data_ini, data_fim, db_path=db_path, filtro=filtro):
+        credito = _d(r["credito"]) if r["credito"] else None
+        debito = _d(r["debito"]) if r["debito"] else None
+        historico = r["historico"]
         itens.append(
             {
                 "id": f"e-{r['id']}",
+                "movimento_id": r["id"],
                 "data": str(r["data"])[:10],
-                "descricao": r["historico"],
-                "credito": _d(r["credito"]) if r["credito"] else None,
-                "debito": _d(r["debito"]) if r["debito"] else None,
-                "saldo": _d(r["saldo"]) if r.get("saldo") else None,
+                "descricao": historico,
+                "credito": credito,
+                "debito": debito,
+                "saldo": _d(r["saldo"]) if r["saldo"] else None,
                 "categoria": r["categoria"],
                 "origem": "extrato",
-                "tipo_lanc": None,
+                "origem_label": rotulo_origem_movimento(historico, credito, debito),
+                "tipo_lanc": "entrada" if credito is not None else "saida",
             }
         )
     if filtro is None or filtro.incluir_manuais:
@@ -1263,6 +1332,7 @@ def listar_consolidado(
             itens.append(
                 {
                     "id": f"m-{r['id']}",
+                    "movimento_id": None,
                     "data": str(r["data"])[:10],
                     "descricao": r["descricao"],
                     "credito": val if r["tipo"] == "entrada" else None,
@@ -1270,6 +1340,7 @@ def listar_consolidado(
                     "saldo": None,
                     "categoria": r["categoria"],
                     "origem": "manual",
+                    "origem_label": "Lançamento manual",
                     "tipo_lanc": r["tipo"],
                     "manual_id": r["id"],
                 }

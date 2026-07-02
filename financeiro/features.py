@@ -1325,7 +1325,7 @@ def exportar_movimentos_csv(
     rows = listar_consolidado(data_ini, data_fim, db_path, filtro=filtro)
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    w.writerow(["data", "descricao", "entrada", "saida", "categoria", "origem"])
+    w.writerow(["data", "descricao", "entrada", "saida", "categoria", "origem", "origem_label"])
     for r in rows:
         w.writerow(
             [
@@ -1335,6 +1335,7 @@ def exportar_movimentos_csv(
                 str(r["debito"]) if r["debito"] else "",
                 r["categoria"],
                 r["origem"],
+                r.get("origem_label", r["origem"]),
             ]
         )
     return buf.getvalue()

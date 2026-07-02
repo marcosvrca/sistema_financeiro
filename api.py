@@ -11,7 +11,7 @@ from pathlib import Path
 
 from collections.abc import Generator
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
@@ -31,10 +31,12 @@ from financeiro.db import (
     FiltroVisao,
     _d,
     atualizar_lancamento_manual,
+    atualizar_movimento,
     calcular_indicadores,
     desativar_conta_fixa,
     excluir_importacao_extrato,
     excluir_lancamento_manual,
+    excluir_movimento,
     init_db,
     inserir_lancamento_manual,
     inserir_movimentos,
@@ -58,8 +60,10 @@ from financeiro.db import (
     ultimo_saldo,
 )
 from financeiro.numbers import parse_br_decimal, parse_decimal_valor
+from financeiro.pdf_extract import extrair_texto_pdf
 from financeiro.parser import (
     CATEGORIAS_SUGERIDAS,
+    LinhaExtrato,
     categoria_por_historico,
     detectar_banco_extrato,
     parse_extrato_texto,
@@ -486,6 +490,35 @@ def api_movimentos(
     return out
 
 
+@app.put("/api/movimentos/{mov_id}")
+def editar_movimento(mov_id: int, body: LancamentoIn) -> dict:
+    v = parse_br_decimal(body.valor)
+    if v is None or not body.descricao.strip():
+        raise HTTPException(400, "Descrição e valor válido são obrigatórios.")
+    d = _parse_date(body.data)
+    if d is None:
+        raise HTTPException(400, "Data inválida (use AAAA-MM-DD).")
+    ok = atualizar_movimento(
+        mov_id=mov_id,
+        data_mov=d,
+        historico=body.descricao.strip(),
+        valor=v,
+        tipo=body.tipo,
+        categoria=body.categoria,
+    )
+    if not ok:
+        raise HTTPException(404, "Movimento não encontrado.")
+    recategorizar_movimentos()
+    return {"ok": True}
+
+
+@app.delete("/api/movimentos/{mov_id}")
+def remover_movimento(mov_id: int) -> dict:
+    if not excluir_movimento(mov_id=mov_id):
+        raise HTTPException(404, "Movimento não encontrado.")
+    return {"ok": True}
+
+
 @app.post("/api/lancamentos")
 def criar_lancamento(body: LancamentoIn) -> dict:
     v = parse_br_decimal(body.valor)
@@ -566,19 +599,20 @@ def api_recategorizar() -> dict:
     return {"ok": True, "atualizados": n}
 
 
-@app.post("/api/extrato/importar")
-def importar_extrato(body: ExtratoIn) -> dict:
-    linhas = parse_extrato_texto(body.texto)
+def _importar_linhas_extrato(
+    linhas: list[LinhaExtrato], texto_ref: str, banco: str | None
+) -> dict:
     if not linhas:
         raise HTTPException(
             400,
             "Nenhuma linha válida encontrada. Formatos aceitos: "
-            "Nubank (CSV: Data,Valor,Identificador,Descrição) ou "
-            "Bradesco (texto com ';' e colunas de crédito/débito).",
+            "Nubank (CSV ou PDF), BRB (PDF), Bradesco (texto com ';').",
         )
-    banco = (body.banco or "").strip() or detectar_banco_extrato(body.texto)
+    banco_final = (banco or "").strip() or detectar_banco_extrato(texto_ref)
+    datas = [r.data for r in linhas]
+    data_min, data_max = min(datas), max(datas)
     ins, dup, imp_id = inserir_movimentos(
-        linhas=linhas, categorizar=categoria_por_historico, banco=banco
+        linhas=linhas, categorizar=categoria_por_historico, banco=banco_final
     )
     recat = recategorizar_movimentos()
     return {
@@ -586,9 +620,51 @@ def importar_extrato(body: ExtratoIn) -> dict:
         "inseridas": ins,
         "duplicadas": dup,
         "importacao_id": imp_id,
-        "banco": banco,
+        "banco": banco_final,
+        "data_min": data_min.isoformat(),
+        "data_max": data_max.isoformat(),
         "recategorizados": recat,
     }
+
+
+@app.post("/api/extrato/importar")
+def importar_extrato(body: ExtratoIn) -> dict:
+    banco = (body.banco or "").strip() or None
+    linhas = parse_extrato_texto(body.texto, banco=banco)
+    return _importar_linhas_extrato(linhas, body.texto, banco)
+
+
+@app.post("/api/extrato/importar-arquivo")
+async def importar_extrato_arquivo(
+    arquivo: UploadFile = File(...),
+    banco: str | None = Form(None),
+) -> dict:
+    nome = (arquivo.filename or "").lower()
+    conteudo = await arquivo.read()
+    if not conteudo:
+        raise HTTPException(400, "Arquivo vazio.")
+
+    banco_sel = (banco or "").strip() or None
+    if nome.endswith(".pdf"):
+        try:
+            texto = extrair_texto_pdf(conteudo)
+        except RuntimeError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(400, f"Não foi possível ler o PDF: {exc}") from exc
+        if not texto.strip():
+            raise HTTPException(400, "PDF sem texto legível (pode ser escaneado).")
+        linhas = parse_extrato_texto(texto, banco=banco_sel)
+        resultado = _importar_linhas_extrato(linhas, texto, banco_sel)
+        resultado["texto_extraido"] = texto[:8000]
+        return resultado
+
+    try:
+        texto = conteudo.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        texto = conteudo.decode("latin-1")
+    linhas = parse_extrato_texto(texto, banco=banco_sel)
+    return _importar_linhas_extrato(linhas, texto, banco_sel)
 
 
 @app.get("/api/extratos")
