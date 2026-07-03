@@ -4,6 +4,7 @@ API REST + painel web. Execute via Docker ou: uvicorn api:app --reload --port 80
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import date
 from decimal import Decimal
@@ -21,9 +22,17 @@ from financeiro.auth import (
     SESSION_MAX_SECONDS,
     authenticate,
     create_access_token,
+    is_production_secret_ok,
     refresh_token_activity,
+    revoke_token,
     user_from_token,
     validate_token,
+)
+from financeiro.permissions import (
+    PUBLIC_API_PATHS,
+    TenantContextRequired,
+    get_request_user_id,
+    is_protected_api_path,
 )
 from financeiro.config import SQLITE_PATH, USERS_DATA_DIR, using_postgres
 from financeiro.context import current_user_id
@@ -228,7 +237,10 @@ class ContaFixaMesIn(BaseModel):
 
 def _bind_user_db(request: Request) -> Generator[None, None, None]:
     """Garante o contexto do usuário na thread que executa a rota (evita perda com thread pool)."""
-    uid = getattr(request.state, "user_id", None)
+    path = request.url.path
+    uid = get_request_user_id(request)
+    if is_protected_api_path(path, request.method) and not uid:
+        raise HTTPException(403, "Contexto de usuário ausente.")
     anterior = current_user_id.get()
     if uid:
         current_user_id.set(uid)
@@ -238,16 +250,28 @@ def _bind_user_db(request: Request) -> Generator[None, None, None]:
         current_user_id.set(anterior)
 
 
+def _cors_origins() -> list[str]:
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return ["http://localhost:8080", "http://127.0.0.1:8080"]
+
+
 app = FastAPI(title="seOrganize", version="2.0", dependencies=[Depends(_bind_user_db)])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Session-Token"],
 )
 
-_PUBLIC_PATHS = {"/", "/api/health", "/api/auth/login", "/api/auth/logout"}
+_PUBLIC_PATHS = {"/", *PUBLIC_API_PATHS}
+
+
+@app.exception_handler(TenantContextRequired)
+async def tenant_context_required_handler(_request: Request, exc: TenantContextRequired) -> PlainTextResponse:
+    return PlainTextResponse(str(exc), status_code=403)
 
 
 def _extract_bearer(request: Request) -> str | None:
@@ -285,6 +309,10 @@ async def auth_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 def startup() -> None:
+    if os.environ.get("RAILWAY_ENVIRONMENT") and not is_production_secret_ok():
+            raise RuntimeError(
+                "AUTH_SECRET não configurado. Defina uma chave forte em produção para proteger sessões."
+            )
     if not using_postgres():
         SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
         USERS_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -330,7 +358,10 @@ def login(body: LoginIn) -> dict:
 
 
 @app.post("/api/auth/logout")
-def logout() -> dict:
+def logout(request: Request) -> dict:
+    token = _extract_bearer(request)
+    if token:
+        revoke_token(token)
     return {"ok": True}
 
 

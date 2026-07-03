@@ -6,12 +6,22 @@ import hmac
 import json
 import os
 import secrets
+import threading
 import time
 from typing import Any
 
-AUTH_SECRET = os.environ.get("AUTH_SECRET", "altere-em-producao-financas-pro")
+_DEFAULT_AUTH_SECRET = "altere-em-producao-financas-pro"
+AUTH_SECRET = os.environ.get("AUTH_SECRET", _DEFAULT_AUTH_SECRET)
 SESSION_MAX_SECONDS = 60 * 60 * 12
 INACTIVITY_TIMEOUT_SECONDS = 60 * 15
+
+_revoked_tokens: set[str] = set()
+_revoked_lock = threading.Lock()
+
+
+def is_production_secret_ok() -> bool:
+    """False quando AUTH_SECRET ainda é o valor padrão inseguro."""
+    return AUTH_SECRET != _DEFAULT_AUTH_SECRET
 
 
 def _hash_password(password: str) -> str:
@@ -34,6 +44,10 @@ USERS_BY_EMAIL: dict[str, dict[str, Any]] = {
 USERS_BY_ID = {u["id"]: {**u, "email": email} for email, u in USERS_BY_EMAIL.items()}
 
 
+def is_known_user_id(user_id: str) -> bool:
+    return user_id in USERS_BY_ID
+
+
 def authenticate(email: str, password: str) -> dict[str, Any] | None:
     user = USERS_BY_EMAIL.get(email.strip().lower())
     if not user:
@@ -43,6 +57,16 @@ def authenticate(email: str, password: str) -> dict[str, Any] | None:
     return user
 
 
+def revoke_token(token: str) -> None:
+    with _revoked_lock:
+        _revoked_tokens.add(token)
+
+
+def is_token_revoked(token: str) -> bool:
+    with _revoked_lock:
+        return token in _revoked_tokens
+
+
 def create_access_token(
     user_id: str,
     email: str,
@@ -50,6 +74,8 @@ def create_access_token(
     issued_at: int | None = None,
     last_activity: int | None = None,
 ) -> str:
+    if not is_known_user_id(user_id):
+        raise ValueError(f"Usuário desconhecido: {user_id}")
     now = int(time.time())
     iat = issued_at if issued_at is not None else now
     lat = last_activity if last_activity is not None else now
@@ -84,6 +110,8 @@ def _session_valid(payload: dict[str, Any]) -> bool:
 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:
+    if is_token_revoked(token):
+        return None
     try:
         body, sig = token.rsplit(".", 1)
         expected = hmac.new(AUTH_SECRET.encode(), body.encode(), hashlib.sha256).hexdigest()
@@ -92,7 +120,7 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         padded = body + "=" * (-len(body) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded))
         user_id = payload.get("sub")
-        if not user_id or user_id not in USERS_BY_ID:
+        if not user_id or not is_known_user_id(user_id):
             return None
         if not _session_valid(payload):
             return None

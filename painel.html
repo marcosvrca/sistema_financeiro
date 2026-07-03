@@ -2142,8 +2142,10 @@
 
     async function doLogout(msg) {
       clearIdleTimer();
+      const token = getToken();
       try {
-        await fetch(API + "/api/auth/logout", { method: "POST" });
+        const headers = token ? { Authorization: "Bearer " + token } : {};
+        await fetch(API + "/api/auth/logout", { method: "POST", headers });
       } catch (_) { /* offline: encerra localmente */ }
       setToken(null);
       setLoginAt(null);

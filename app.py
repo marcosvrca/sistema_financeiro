@@ -120,7 +120,9 @@ EXEMPLO_PATH = ROOT / "data" / "exemplo_extrato.txt"
 
 def _db_path() -> Path:
     uid = st.session_state.get("user_id")
-    return user_sqlite_path(uid) if uid else ROOT / "data" / "financeiro.db"
+    if not uid:
+        raise RuntimeError("Sessão inválida: usuário não autenticado.")
+    return user_sqlite_path(uid)
 
 
 _LOGIN_CSS = """
