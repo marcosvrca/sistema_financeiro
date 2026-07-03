@@ -299,12 +299,17 @@ async def auth_middleware(request: Request, call_next):
     request.state.user_id = user["id"]
     request.state.auth_payload = payload
 
-    response = await call_next(request)
-    if response.status_code < 400:
-        new_token = refresh_token_activity(payload)
-        if new_token:
-            response.headers["X-Session-Token"] = new_token
-    return response
+    # ContextVar no middleware garante isolamento também em rotas async (upload de arquivo).
+    ctx_token = current_user_id.set(user["id"])
+    try:
+        response = await call_next(request)
+        if response.status_code < 400:
+            new_token = refresh_token_activity(payload)
+            if new_token:
+                response.headers["X-Session-Token"] = new_token
+        return response
+    finally:
+        current_user_id.reset(ctx_token)
 
 
 @app.on_event("startup")
@@ -666,12 +671,12 @@ def importar_extrato(body: ExtratoIn) -> dict:
 
 
 @app.post("/api/extrato/importar-arquivo")
-async def importar_extrato_arquivo(
+def importar_extrato_arquivo(
     arquivo: UploadFile = File(...),
     banco: str | None = Form(None),
 ) -> dict:
     nome = (arquivo.filename or "").lower()
-    conteudo = await arquivo.read()
+    conteudo = arquivo.file.read()
     if not conteudo:
         raise HTTPException(400, "Arquivo vazio.")
 

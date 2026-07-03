@@ -112,6 +112,21 @@ class TenantIsolationTests(unittest.TestCase):
         self.assertEqual(me_m["id"], "marcos")
         self.assertEqual(me_v["id"], "vitoria")
 
+    def test_importar_arquivo_extrato(self) -> None:
+        exemplo = (
+            "Data;Histórico;Docto.;Crédito (R$);Débito (R$);Saldo (R$)\n"
+            "01/07/2026;TESTE IMPORT ARQUIVO;1;100,00; ;100,00\n"
+        )
+        r = self.client.post(
+            "/api/extrato/importar-arquivo",
+            headers=self._auth_marcos,
+            files={"arquivo": ("extrato.csv", exemplo.encode("utf-8"), "text/csv")},
+            data={"banco": "bradesco"},
+        )
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertGreater(body.get("inseridas", 0), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
